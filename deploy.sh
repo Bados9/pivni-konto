@@ -26,6 +26,10 @@ docker compose -f docker-compose.prod.yml exec -T php composer install --no-dev 
 echo "🔑 Checking JWT keys..."
 docker compose -f docker-compose.prod.yml exec -T php php bin/console lexik:jwt:generate-keypair --skip-if-exists
 
+# Clear cache (must run before migrations/commands to register new code)
+echo "🧹 Clearing cache..."
+docker compose -f docker-compose.prod.yml exec -T php php bin/console cache:clear
+
 # Run migrations
 echo "📊 Running migrations..."
 docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction
@@ -33,10 +37,6 @@ docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:m
 # Load beer data (safe to re-run, skips existing)
 echo "🍺 Loading beer data..."
 docker compose -f docker-compose.prod.yml exec -T php php bin/console app:load-beers
-
-# Clear cache
-echo "🧹 Clearing cache..."
-docker compose -f docker-compose.prod.yml exec -T php php bin/console cache:clear
 
 echo "✅ Deployment complete!"
 echo "🌐 App running at http://$(curl -s ifconfig.me)"
