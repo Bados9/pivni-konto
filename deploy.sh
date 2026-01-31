@@ -30,6 +30,10 @@ docker compose -f docker-compose.prod.yml exec -T php php bin/console lexik:jwt:
 echo "📊 Running migrations..."
 docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction
 
+# Load beer fixtures (safe to re-run, won't purge existing data)
+echo "🍺 Loading beer data..."
+docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:fixtures:load --append --group=BeerFixtures
+
 # Clear cache
 echo "🧹 Clearing cache..."
 docker compose -f docker-compose.prod.yml exec -T php php bin/console cache:clear
