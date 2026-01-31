@@ -20,7 +20,7 @@ sleep 5
 
 # Install PHP dependencies
 echo "📦 Installing PHP dependencies..."
-docker compose -f docker-compose.prod.yml exec -T php composer install --no-dev --optimize-autoloader
+docker compose -f docker-compose.prod.yml exec -T php composer install --no-dev --optimize-autoloader --no-scripts
 
 # Generate JWT keys if not exist
 echo "🔑 Checking JWT keys..."
