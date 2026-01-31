@@ -48,10 +48,8 @@ services:
       - pivnikonto
 
   node:
-    build:
-      context: ./docker/node
-      dockerfile: Dockerfile
-    user: root
+    image: node:20-alpine
+    working_dir: /app
     volumes:
       - ./frontend:/app
       - frontend_build:/app/dist
