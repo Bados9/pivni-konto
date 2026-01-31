@@ -3,9 +3,12 @@
 namespace App\Service;
 
 use App\Entity\User;
+use App\Entity\UserAchievement;
 use App\Enum\GroupRole;
 use App\Repository\BeerEntryRepository;
 use App\Repository\GroupMemberRepository;
+use App\Repository\UserAchievementRepository;
+use Doctrine\ORM\EntityManagerInterface;
 
 class AchievementService
 {
@@ -152,16 +155,69 @@ class AchievementService
     public function __construct(
         private BeerEntryRepository $entryRepository,
         private GroupMemberRepository $memberRepository,
+        private UserAchievementRepository $achievementRepository,
+        private EntityManagerInterface $entityManager,
     ) {
+    }
+
+    /**
+     * Check all achievements and unlock new ones.
+     * Returns array of newly unlocked achievements.
+     *
+     * @return array<array{id: string, name: string, icon: string}>
+     */
+    public function checkAndUnlockAchievements(User $user): array
+    {
+        $stats = $this->calculateUserStats($user);
+        $alreadyUnlocked = $this->achievementRepository->getUnlockedIds($user);
+        $newlyUnlocked = [];
+
+        foreach ($this->achievementDefinitions as $id => $definition) {
+            if (in_array($id, $alreadyUnlocked, true)) {
+                continue;
+            }
+
+            $shouldUnlock = $this->isAchievementUnlocked($id, $stats);
+            if (!$shouldUnlock) {
+                continue;
+            }
+
+            $achievement = new UserAchievement();
+            $achievement->setUser($user);
+            $achievement->setAchievementId($id);
+
+            $this->entityManager->persist($achievement);
+
+            $newlyUnlocked[] = [
+                'id' => $id,
+                'name' => $definition['name'],
+                'icon' => $definition['icon'],
+            ];
+        }
+
+        if (!empty($newlyUnlocked)) {
+            $this->entityManager->flush();
+        }
+
+        return $newlyUnlocked;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getUnlockedAchievementIds(User $user): array
+    {
+        return $this->achievementRepository->getUnlockedIds($user);
     }
 
     public function getUserAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
+        $unlockedIds = $this->achievementRepository->getUnlockedIds($user);
         $achievements = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
-            $unlocked = $this->isAchievementUnlocked($id, $stats);
+            $unlocked = in_array($id, $unlockedIds, true);
             $progress = $this->getAchievementProgress($id, $stats);
 
             $achievements[] = [

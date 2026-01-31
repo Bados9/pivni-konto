@@ -9,24 +9,26 @@ use App\Repository\BeerEntryRepository;
 use App\Repository\BeerRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
+use App\Service\AchievementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Uid\Uuid;
 
 #[Route('/api/entries')]
 class EntryController extends AbstractController
 {
     use UuidValidationTrait;
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private BeerEntryRepository $entryRepository,
         private GroupRepository $groupRepository,
         private GroupMemberRepository $memberRepository,
         private BeerRepository $beerRepository,
+        private AchievementService $achievementService,
     ) {
     }
 
@@ -89,12 +91,16 @@ class EntryController extends AbstractController
         $this->entityManager->persist($entry);
         $this->entityManager->flush();
 
+        // Check for newly unlocked achievements
+        $newAchievements = $this->achievementService->checkAndUnlockAchievements($user);
+
         $response = [
             'id' => $entry->getId()->toRfc4122(),
             'beerName' => $entry->getBeerDisplayName(),
             'quantity' => $entry->getQuantity(),
             'volumeMl' => $entry->getVolumeMl(),
             'consumedAt' => $entry->getConsumedAt()->format('c'),
+            'newAchievements' => $newAchievements,
         ];
 
         $group = $entry->getGroup();

@@ -6,8 +6,10 @@ import BeerButton from '../components/BeerButton.vue'
 import BeerSelect from '../components/BeerSelect.vue'
 import StatsCard from '../components/StatsCard.vue'
 import EntryList from '../components/EntryList.vue'
+import AchievementToast from '../components/AchievementToast.vue'
 
 const groups = useGroupsStore()
+const newAchievements = ref([])
 
 const stats = ref({ today: 0, thisWeek: 0, todayEntries: [] })
 const beers = ref([])
@@ -77,7 +79,10 @@ async function addBeer() {
       options.beerId = selectedBeerId.value
     }
     // Pivo se přidá k uživateli, statistiky se zobrazí ve všech skupinách
-    await api.quickAdd(options)
+    const response = await api.quickAdd(options)
+    if (response.newAchievements && response.newAchievements.length > 0) {
+      newAchievements.value = [...newAchievements.value, ...response.newAchievements]
+    }
     await fetchStats()
   } catch (error) {
     console.error('Failed to add beer:', error)
@@ -101,7 +106,10 @@ async function addRetroEntry() {
       options.beerId = retroBeerId.value
     }
 
-    await api.quickAdd(options)
+    const response = await api.quickAdd(options)
+    if (response.newAchievements && response.newAchievements.length > 0) {
+      newAchievements.value = [...newAchievements.value, ...response.newAchievements]
+    }
     await fetchStats()
 
     // Reset formu
@@ -123,6 +131,10 @@ async function deleteEntry(id) {
   }
 }
 
+function clearAchievements() {
+  newAchievements.value = []
+}
+
 onMounted(async () => {
   await groups.fetchGroups()
   await Promise.all([fetchBeers(), fetchStats()])
@@ -130,6 +142,8 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AchievementToast :achievements="newAchievements" @clear="clearAchievements" />
+
   <div class="max-w-lg mx-auto px-4 py-6">
     <header class="text-center mb-6">
       <h1 class="text-2xl font-bold text-beer-500">🍺 Pivní Konto</h1>
