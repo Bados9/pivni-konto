@@ -51,6 +51,7 @@ services:
     build:
       context: ./docker/node
       dockerfile: Dockerfile
+    user: root
     volumes:
       - ./frontend:/app
       - frontend_build:/app/dist
