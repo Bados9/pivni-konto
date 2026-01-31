@@ -1,0 +1,139 @@
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+
+class ApiService {
+  constructor() {
+    this.token = localStorage.getItem('token')
+  }
+
+  setToken(token) {
+    this.token = token
+    if (token) {
+      localStorage.setItem('token', token)
+    } else {
+      localStorage.removeItem('token')
+    }
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${API_URL}${endpoint}`
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers
+    })
+
+    if (response.status === 401) {
+      this.setToken(null)
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      throw new Error('Unauthorized')
+    }
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Něco se pokazilo')
+    }
+
+    return data
+  }
+
+  get(endpoint) {
+    return this.request(endpoint)
+  }
+
+  post(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  patch(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    })
+  }
+
+  delete(endpoint) {
+    return this.request(endpoint, {
+      method: 'DELETE'
+    })
+  }
+
+  // Auth
+  login(email, password) {
+    return this.post('/auth/login', { email, password })
+  }
+
+  register(name, email, password) {
+    return this.post('/auth/register', { name, email, password })
+  }
+
+  getMe() {
+    return this.get('/auth/me')
+  }
+
+  // Groups
+  getMyGroups() {
+    return this.get('/groups/my')
+  }
+
+  createGroup(name) {
+    return this.post('/groups/create', { name })
+  }
+
+  joinGroup(code) {
+    return this.post('/groups/join', { code })
+  }
+
+  // Entries
+  quickAdd(options = {}) {
+    return this.post('/entries/quick-add', options)
+  }
+
+  deleteEntry(id) {
+    return this.delete(`/entries/${id}`)
+  }
+
+  // Stats
+  getMyStats() {
+    return this.get('/stats/me')
+  }
+
+  getUserStats(userId) {
+    return this.get(`/stats/user/${userId}`)
+  }
+
+  getLeaderboard(groupId, period = 'week') {
+    return this.get(`/stats/leaderboard/${groupId}?period=${period}`)
+  }
+
+  // Beers
+  getBeers() {
+    return this.get('/beers')
+  }
+
+  searchBeers(query) {
+    return this.get(`/beers?name=${encodeURIComponent(query)}`)
+  }
+
+  // Achievements
+  getMyAchievements() {
+    return this.get('/achievements/me')
+  }
+
+  getAchievementsSummary() {
+    return this.get('/achievements/summary')
+  }
+}
+
+export const api = new ApiService()

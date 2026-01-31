@@ -1,0 +1,24 @@
+# Environment - NEVER commit .env with secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# JWT keys
+backend/config/jwt/*.pem
+
+# Docker data
+docker/data/
