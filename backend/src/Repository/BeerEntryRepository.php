@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\BeerEntry;
 use App\Entity\Group;
 use App\Entity\User;
+use App\Service\DrinkingDayService;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -13,8 +14,10 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class BeerEntryRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private DrinkingDayService $drinkingDayService,
+    ) {
         parent::__construct($registry, BeerEntry::class);
     }
 
@@ -23,16 +26,16 @@ class BeerEntryRepository extends ServiceEntityRepository
      */
     public function findTodayByUser(User $user): array
     {
-        $today = new \DateTimeImmutable('today');
-        $tomorrow = new \DateTimeImmutable('tomorrow');
+        $dayStart = $this->drinkingDayService->getDrinkingDayStart();
+        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
 
         return $this->createQueryBuilder('e')
             ->where('e.user = :user')
-            ->andWhere('e.consumedAt >= :today')
-            ->andWhere('e.consumedAt < :tomorrow')
+            ->andWhere('e.consumedAt >= :dayStart')
+            ->andWhere('e.consumedAt < :dayEnd')
             ->setParameter('user', $user)
-            ->setParameter('today', $today)
-            ->setParameter('tomorrow', $tomorrow)
+            ->setParameter('dayStart', $dayStart)
+            ->setParameter('dayEnd', $dayEnd)
             ->orderBy('e.consumedAt', 'DESC')
             ->getQuery()
             ->getResult();
@@ -122,6 +125,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
     /**
      * Get daily beer counts for user over a period
+     * Uses drinking day logic (day boundary at 5:00 AM)
      * @return array<array{date: string, count: int}>
      */
     public function getDailyCountsByUser(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
@@ -137,11 +141,11 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        // Group by date in PHP
+        // Group by drinking date in PHP
         $dailyCounts = [];
         foreach ($entries as $entry) {
-            $date = $entry['consumedAt']->format('Y-m-d');
-            $dailyCounts[$date] = ($dailyCounts[$date] ?? 0) + $entry['quantity'];
+            $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
+            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $entry['quantity'];
         }
 
         // Sort by date and format result
@@ -204,6 +208,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     /**
      * Get current drinking streak (consecutive days)
      * Uses single query to fetch all dates and calculates streak in PHP
+     * Uses "drinking day" logic (day boundary at 5:00 AM)
      */
     public function getCurrentStreakByUser(User $user): int
     {
@@ -215,21 +220,22 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        // Extract unique dates
+        // Extract unique drinking dates
         $dates = [];
         foreach ($entries as $entry) {
-            $dates[$entry['consumedAt']->format('Y-m-d')] = true;
+            $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
+            $dates[$drinkingDate] = true;
         }
         $dates = array_keys($dates);
         rsort($dates);
 
         $streak = 0;
-        $today = new \DateTimeImmutable('today');
+        $todayDrinkingDate = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
 
         foreach ($dates as $dateStr) {
-            $expectedDate = $today->modify("-{$streak} days");
+            $expectedDate = (new \DateTimeImmutable($todayDrinkingDate))->modify("-{$streak} days")->format('Y-m-d');
 
-            if ($dateStr !== $expectedDate->format('Y-m-d')) {
+            if ($dateStr !== $expectedDate) {
                 break;
             }
             $streak++;
@@ -240,6 +246,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
     /**
      * Get average beers per day (days with at least one beer)
+     * Uses drinking day logic (day boundary at 5:00 AM)
      */
     public function getAveragePerDayByUser(User $user): float
     {
@@ -253,8 +260,8 @@ class BeerEntryRepository extends ServiceEntityRepository
         $uniqueDays = [];
         $total = 0;
         foreach ($entries as $entry) {
-            $date = $entry['consumedAt']->format('Y-m-d');
-            $uniqueDays[$date] = true;
+            $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
+            $uniqueDays[$drinkingDate] = true;
             $total += $entry['quantity'];
         }
 
@@ -329,7 +336,7 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        // Calculate time-based stats in PHP
+        // Calculate time-based stats in PHP using drinking day logic
         $weekendBeers = 0;
         $earlyBird = false;
         $nightOwl = false;
@@ -338,17 +345,17 @@ class BeerEntryRepository extends ServiceEntityRepository
         foreach ($allEntries as $entry) {
             $consumedAt = $entry['consumedAt'];
             $quantity = $entry['quantity'];
-            $date = $consumedAt->format('Y-m-d');
+            $drinkingDate = $this->drinkingDayService->getDrinkingDate($consumedAt);
             $hour = (int) $consumedAt->format('H');
-            $dayOfWeek = (int) $consumedAt->format('N'); // 1=Monday, 7=Sunday
 
-            // Weekend (Saturday=6, Sunday=7)
-            if ($dayOfWeek >= 6) {
+            // Weekend check uses drinking date
+            $drinkingDayOfWeek = (int) (new \DateTimeImmutable($drinkingDate))->format('N');
+            if ($drinkingDayOfWeek >= 6) {
                 $weekendBeers += $quantity;
             }
 
-            // Early bird (before 10:00)
-            if ($hour < 10) {
+            // Early bird (before 10:00 but after 5:00 - drinking day start)
+            if ($hour >= 5 && $hour < 10) {
                 $earlyBird = true;
             }
 
@@ -357,8 +364,8 @@ class BeerEntryRepository extends ServiceEntityRepository
                 $nightOwl = true;
             }
 
-            // Daily counts
-            $dailyCounts[$date] = ($dailyCounts[$date] ?? 0) + $quantity;
+            // Daily counts using drinking date
+            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $quantity;
         }
 
         // Calculate max daily and consecutive days from daily counts

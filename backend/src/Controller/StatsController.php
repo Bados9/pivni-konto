@@ -7,6 +7,7 @@ use App\Entity\User;
 use App\Repository\BeerEntryRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
+use App\Service\DrinkingDayService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ class StatsController extends AbstractController
         private GroupRepository $groupRepository,
         private GroupMemberRepository $memberRepository,
         private UserRepository $userRepository,
+        private DrinkingDayService $drinkingDayService,
     ) {
     }
 
@@ -33,17 +35,17 @@ class StatsController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        $today = new \DateTimeImmutable('today');
-        $tomorrow = new \DateTimeImmutable('tomorrow');
-        $weekStart = new \DateTimeImmutable('monday this week');
-        $monthStart = new \DateTimeImmutable('first day of this month');
-        $yearStart = new \DateTimeImmutable('first day of january this year');
+        $dayStart = $this->drinkingDayService->getDrinkingDayStart();
+        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
+        $weekStart = new \DateTimeImmutable('monday this week 05:00');
+        $monthStart = new \DateTimeImmutable('first day of this month 05:00');
+        $yearStart = new \DateTimeImmutable('first day of january this year 05:00');
         $thirtyDaysAgo = new \DateTimeImmutable('-30 days');
 
-        $todayCount = $this->entryRepository->countByUserInPeriod($user, $today, $tomorrow);
-        $weekCount = $this->entryRepository->countByUserInPeriod($user, $weekStart, $tomorrow);
-        $monthCount = $this->entryRepository->countByUserInPeriod($user, $monthStart, $tomorrow);
-        $yearCount = $this->entryRepository->countByUserInPeriod($user, $yearStart, $tomorrow);
+        $todayCount = $this->entryRepository->countByUserInPeriod($user, $dayStart, $dayEnd);
+        $weekCount = $this->entryRepository->countByUserInPeriod($user, $weekStart, $dayEnd);
+        $monthCount = $this->entryRepository->countByUserInPeriod($user, $monthStart, $dayEnd);
+        $yearCount = $this->entryRepository->countByUserInPeriod($user, $yearStart, $dayEnd);
 
         $totals = $this->entryRepository->getTotalStatsByUser($user);
 
@@ -60,7 +62,7 @@ class StatsController extends AbstractController
         }
 
         // Extended stats for personal view
-        $dailyCounts = $this->entryRepository->getDailyCountsByUser($user, $thirtyDaysAgo, $tomorrow);
+        $dailyCounts = $this->entryRepository->getDailyCountsByUser($user, $thirtyDaysAgo, $dayEnd);
         $topBeers = $this->entryRepository->getTopBeersByUser($user);
         $topBreweries = $this->entryRepository->getTopBreweriesByUser($user);
         $currentStreak = $this->entryRepository->getCurrentStreakByUser($user);
@@ -106,16 +108,16 @@ class StatsController extends AbstractController
             }
         }
 
-        $today = new \DateTimeImmutable('today');
-        $tomorrow = new \DateTimeImmutable('tomorrow');
-        $weekStart = new \DateTimeImmutable('monday this week');
-        $monthStart = new \DateTimeImmutable('first day of this month');
-        $yearStart = new \DateTimeImmutable('first day of january this year');
+        $dayStart = $this->drinkingDayService->getDrinkingDayStart();
+        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
+        $weekStart = new \DateTimeImmutable('monday this week 05:00');
+        $monthStart = new \DateTimeImmutable('first day of this month 05:00');
+        $yearStart = new \DateTimeImmutable('first day of january this year 05:00');
 
-        $todayCount = $this->entryRepository->countByUserInPeriod($targetUser, $today, $tomorrow);
-        $weekCount = $this->entryRepository->countByUserInPeriod($targetUser, $weekStart, $tomorrow);
-        $monthCount = $this->entryRepository->countByUserInPeriod($targetUser, $monthStart, $tomorrow);
-        $yearCount = $this->entryRepository->countByUserInPeriod($targetUser, $yearStart, $tomorrow);
+        $todayCount = $this->entryRepository->countByUserInPeriod($targetUser, $dayStart, $dayEnd);
+        $weekCount = $this->entryRepository->countByUserInPeriod($targetUser, $weekStart, $dayEnd);
+        $monthCount = $this->entryRepository->countByUserInPeriod($targetUser, $monthStart, $dayEnd);
+        $yearCount = $this->entryRepository->countByUserInPeriod($targetUser, $yearStart, $dayEnd);
         $totals = $this->entryRepository->getTotalStatsByUser($targetUser);
 
         return $this->json([
@@ -170,15 +172,15 @@ class StatsController extends AbstractController
         }
 
         $period = $request->query->get('period', 'week');
-        $tomorrow = new \DateTimeImmutable('tomorrow');
+        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
 
         $periodStart = match ($period) {
-            'month' => new \DateTimeImmutable('first day of this month'),
-            'year' => new \DateTimeImmutable('first day of january this year'),
-            default => new \DateTimeImmutable('monday this week'),
+            'month' => new \DateTimeImmutable('first day of this month 05:00'),
+            'year' => new \DateTimeImmutable('first day of january this year 05:00'),
+            default => new \DateTimeImmutable('monday this week 05:00'),
         };
 
-        $leaderboard = $this->entryRepository->getLeaderboardWithAllMembers($group, $periodStart, $tomorrow);
+        $leaderboard = $this->entryRepository->getLeaderboardWithAllMembers($group, $periodStart, $dayEnd);
 
         return $this->json([
             'group' => [
