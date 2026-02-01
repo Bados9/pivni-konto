@@ -1,0 +1,7 @@
+# Disable rate limiting in tests
+framework:
+    rate_limiter:
+        registration:
+            policy: 'no_limit'
+        group_join:
+            policy: 'no_limit'

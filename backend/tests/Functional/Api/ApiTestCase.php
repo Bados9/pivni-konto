@@ -14,28 +14,24 @@ abstract class ApiTestCase extends WebTestCase
     protected KernelBrowser $client;
     protected EntityManagerInterface $entityManager;
     protected ?string $authToken = null;
+    private static int $userCounter = 0;
 
     protected function setUp(): void
     {
         $this->client = static::createClient();
         $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
-
-        // Begin transaction for test isolation
-        $this->entityManager->beginTransaction();
+        $this->authToken = null;
     }
 
     protected function tearDown(): void
     {
-        // Rollback transaction to clean up test data
-        if ($this->entityManager->getConnection()->isTransactionActive()) {
-            $this->entityManager->rollback();
-        }
-
         parent::tearDown();
     }
 
-    protected function createUser(string $email = 'test@example.com', string $password = 'password123', string $name = 'Test User'): User
+    protected function createUser(?string $email = null, string $password = 'password123', string $name = 'Test User'): User
     {
+        $email ??= 'test' . (++self::$userCounter) . '_' . uniqid() . '@example.com';
+
         $passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
         $user = new User();
@@ -82,19 +78,5 @@ abstract class ApiTestCase extends WebTestCase
     {
         $content = $this->client->getResponse()->getContent();
         return json_decode($content, true) ?? [];
-    }
-
-    protected function assertResponseStatusCodeSame(int $expectedCode): void
-    {
-        $this->assertEquals(
-            $expectedCode,
-            $this->client->getResponse()->getStatusCode(),
-            sprintf(
-                'Expected status code %d, got %d. Response: %s',
-                $expectedCode,
-                $this->client->getResponse()->getStatusCode(),
-                $this->client->getResponse()->getContent()
-            )
-        );
     }
 }
