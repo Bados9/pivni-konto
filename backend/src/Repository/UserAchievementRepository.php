@@ -44,4 +44,27 @@ class UserAchievementRepository extends ServiceEntityRepository
 
         return array_column($results, 'achievementId');
     }
+
+    /**
+     * @return array<string, array{entity: UserAchievement, timesUnlocked: int}>
+     */
+    public function getUnlockedWithCounts(User $user): array
+    {
+        $achievements = $this->findBy(['user' => $user]);
+        $result = [];
+
+        foreach ($achievements as $achievement) {
+            $result[$achievement->getAchievementId()] = [
+                'entity' => $achievement,
+                'timesUnlocked' => $achievement->getTimesUnlocked(),
+            ];
+        }
+
+        return $result;
+    }
+
+    public function findByUserAndAchievementId(User $user, string $achievementId): ?UserAchievement
+    {
+        return $this->findOneBy(['user' => $user, 'achievementId' => $achievementId]);
+    }
 }
