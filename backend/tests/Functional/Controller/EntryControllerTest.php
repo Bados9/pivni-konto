@@ -160,15 +160,16 @@ class EntryControllerTest extends ApiTestCase
         $user = $this->createUser();
         $this->loginAs($user);
 
-        $this->apiRequest('DELETE', '/api/entries/00000000-0000-0000-0000-000000000001');
+        // Use a valid UUID format that doesn't exist
+        $this->apiRequest('DELETE', '/api/entries/01945678-1234-7def-9abc-def012345678');
 
         $this->assertResponseStatusCodeSame(404);
     }
 
     public function testDeleteEntryForbiddenForOtherUser(): void
     {
-        $owner = $this->createUser('owner@example.com');
-        $other = $this->createUser('other@example.com');
+        $owner = $this->createUser();
+        $other = $this->createUser();
 
         // Create entry owned by first user
         $entry = new BeerEntry();

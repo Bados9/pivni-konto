@@ -14,6 +14,9 @@ export default defineConfig({
       reporter: ['text', 'html'],
       include: ['src/**/*.{js,vue}'],
       exclude: ['src/__tests__/**', 'src/main.js']
+    },
+    env: {
+      VITE_API_URL: '/api'
     }
   },
   resolve: {

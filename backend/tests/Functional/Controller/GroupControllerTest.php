@@ -31,22 +31,17 @@ class GroupControllerTest extends ApiTestCase
 
     public function testMyGroupsReturnsUserGroups(): void
     {
+        // Create user and login first
         $user = $this->createUser();
-
-        $group = new Group();
-        $group->setName('Test Group');
-        $group->setCreatedBy($user);
-        $this->entityManager->persist($group);
-
-        $member = new GroupMember();
-        $member->setUser($user);
-        $member->setGroup($group);
-        $member->setRole('admin');
-        $this->entityManager->persist($member);
-        $this->entityManager->flush();
-
         $this->loginAs($user);
 
+        // Create group via API instead of directly
+        $this->apiRequest('POST', '/api/groups/create', [
+            'name' => 'Test Group',
+        ]);
+        $this->assertResponseStatusCodeSame(201);
+
+        // Now fetch groups
         $this->apiRequest('GET', '/api/groups/my');
 
         $this->assertResponseStatusCodeSame(200);
@@ -105,8 +100,8 @@ class GroupControllerTest extends ApiTestCase
 
     public function testJoinGroupSuccess(): void
     {
-        $owner = $this->createUser('owner@example.com');
-        $joiner = $this->createUser('joiner@example.com');
+        $owner = $this->createUser();
+        $joiner = $this->createUser();
 
         $group = new Group();
         $group->setName('Joinable Group');

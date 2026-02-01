@@ -102,8 +102,8 @@ class StatsControllerTest extends ApiTestCase
 
     public function testUserStatsRequiresSharedGroup(): void
     {
-        $user1 = $this->createUser('user1@example.com');
-        $user2 = $this->createUser('user2@example.com');
+        $user1 = $this->createUser();
+        $user2 = $this->createUser();
 
         $this->loginAs($user1);
 
@@ -114,8 +114,8 @@ class StatsControllerTest extends ApiTestCase
 
     public function testUserStatsAllowsSharedGroupMembers(): void
     {
-        $user1 = $this->createUser('user1@example.com');
-        $user2 = $this->createUser('user2@example.com');
+        $user1 = $this->createUser();
+        $user2 = $this->createUser();
 
         // Create a shared group
         $group = new Group();
@@ -153,7 +153,8 @@ class StatsControllerTest extends ApiTestCase
         $user = $this->createUser();
         $this->loginAs($user);
 
-        $this->apiRequest('GET', '/api/stats/user/00000000-0000-0000-0000-000000000001');
+        // Use valid UUID format that doesn't exist
+        $this->apiRequest('GET', '/api/stats/user/01945678-1234-7def-9abc-def012345678');
 
         $this->assertResponseStatusCodeSame(404);
     }
@@ -177,8 +178,8 @@ class StatsControllerTest extends ApiTestCase
 
     public function testLeaderboardRequiresMembership(): void
     {
-        $owner = $this->createUser('owner@example.com');
-        $nonMember = $this->createUser('nonmember@example.com');
+        $owner = $this->createUser();
+        $nonMember = $this->createUser();
 
         $group = new Group();
         $group->setName('Private Group');
@@ -267,7 +268,8 @@ class StatsControllerTest extends ApiTestCase
         $user = $this->createUser();
         $this->loginAs($user);
 
-        $this->apiRequest('GET', '/api/stats/leaderboard/00000000-0000-0000-0000-000000000001');
+        // Use valid UUID format that doesn't exist
+        $this->apiRequest('GET', '/api/stats/leaderboard/01945678-1234-7def-9abc-def012345678');
 
         $this->assertResponseStatusCodeSame(404);
     }
