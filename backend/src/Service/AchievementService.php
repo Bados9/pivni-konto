@@ -106,7 +106,7 @@ class AchievementService
         ],
         'weekend_warrior' => [
             'name' => 'Víkendový válečník',
-            'description' => 'Vypij 10 piv během víkendů',
+            'description' => 'Vypij 20 piv během víkendů',
             'icon' => '⚔️',
             'category' => 'time',
         ],
@@ -114,15 +114,17 @@ class AchievementService
         // Výkony
         'marathon' => [
             'name' => 'Maratonec',
-            'description' => 'Vypij 5 piv za jeden den',
+            'description' => 'Vypij 5 piv za jeden den (opakovatelný)',
             'icon' => '🏃',
             'category' => 'performance',
+            'repeatable' => true,
         ],
         'ultra_marathon' => [
             'name' => 'Ultra maratonec',
-            'description' => 'Vypij 10 piv za jeden den',
+            'description' => 'Vypij 10 piv za jeden den (opakovatelný)',
             'icon' => '🦸',
             'category' => 'performance',
+            'repeatable' => true,
         ],
         'weekly_streak' => [
             'name' => 'Týdenní série',
@@ -164,19 +166,56 @@ class AchievementService
      * Check all achievements and unlock new ones.
      * Returns array of newly unlocked achievements.
      *
-     * @return array<array{id: string, name: string, icon: string}>
+     * @return array<array{id: string, name: string, icon: string, timesUnlocked?: int}>
      */
     public function checkAndUnlockAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $alreadyUnlocked = $this->achievementRepository->getUnlockedIds($user);
+        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
         $newlyUnlocked = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
-            if (in_array($id, $alreadyUnlocked, true)) {
+            $isRepeatable = $definition['repeatable'] ?? false;
+            $alreadyHas = isset($unlockedData[$id]);
+
+            // Non-repeatable achievements - skip if already unlocked
+            if ($alreadyHas && !$isRepeatable) {
                 continue;
             }
 
+            // For repeatable achievements, check if user earned more unlocks
+            if ($isRepeatable) {
+                $targetCount = $this->getRepeatableCount($id, $stats);
+                $currentCount = $alreadyHas ? $unlockedData[$id]['timesUnlocked'] : 0;
+
+                if ($targetCount <= $currentCount) {
+                    continue;
+                }
+
+                // User earned more unlocks
+                if ($alreadyHas) {
+                    $achievement = $unlockedData[$id]['entity'];
+                    $achievement->setTimesUnlocked($targetCount);
+                    $achievement->setUnlockedAt(new \DateTimeImmutable());
+                }
+                if (!$alreadyHas) {
+                    $achievement = new UserAchievement();
+                    $achievement->setUser($user);
+                    $achievement->setAchievementId($id);
+                    $achievement->setTimesUnlocked($targetCount);
+                    $this->entityManager->persist($achievement);
+                }
+
+                $newlyUnlocked[] = [
+                    'id' => $id,
+                    'name' => $definition['name'],
+                    'icon' => $definition['icon'],
+                    'timesUnlocked' => $targetCount,
+                ];
+                continue;
+            }
+
+            // Non-repeatable achievement - check if should unlock
             $shouldUnlock = $this->isAchievementUnlocked($id, $stats);
             if (!$shouldUnlock) {
                 continue;
@@ -203,6 +242,18 @@ class AchievementService
     }
 
     /**
+     * Get total count of times a repeatable achievement should be unlocked
+     */
+    private function getRepeatableCount(string $id, array $stats): int
+    {
+        return match ($id) {
+            'marathon' => $stats['days_with_5_beers'],
+            'ultra_marathon' => $stats['days_with_10_beers'],
+            default => 0,
+        };
+    }
+
+    /**
      * @return string[]
      */
     public function getUnlockedAchievementIds(User $user): array
@@ -213,11 +264,13 @@ class AchievementService
     public function getUserAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $unlockedIds = $this->achievementRepository->getUnlockedIds($user);
+        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
         $achievements = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
-            $unlocked = in_array($id, $unlockedIds, true);
+            $isRepeatable = $definition['repeatable'] ?? false;
+            $unlocked = isset($unlockedData[$id]);
+            $timesUnlocked = $unlocked ? $unlockedData[$id]['timesUnlocked'] : 0;
             $progress = $this->getAchievementProgress($id, $stats);
 
             $achievements[] = [
@@ -227,6 +280,8 @@ class AchievementService
                 'icon' => $definition['icon'],
                 'category' => $definition['category'],
                 'unlocked' => $unlocked,
+                'repeatable' => $isRepeatable,
+                'timesUnlocked' => $timesUnlocked,
                 'progress' => $progress['current'],
                 'target' => $progress['target'],
                 'percentage' => $progress['target'] > 0
@@ -291,6 +346,8 @@ class AchievementService
             'max_daily' => $dbStats['max_daily'],
             'max_loyal' => $dbStats['max_loyal'],
             'consecutive_days' => $dbStats['consecutive_days'],
+            'days_with_5_beers' => $dbStats['days_with_5_beers'],
+            'days_with_10_beers' => $dbStats['days_with_10_beers'],
             'group_count' => count($memberships),
             'is_founder' => $isFounder,
         ];
@@ -316,7 +373,7 @@ class AchievementService
 
             'early_bird' => $stats['early_bird'],
             'night_owl' => $stats['night_owl'],
-            'weekend_warrior' => $stats['weekend_beers'] >= 10,
+            'weekend_warrior' => $stats['weekend_beers'] >= 20,
 
             'marathon' => $stats['max_daily'] >= 5,
             'ultra_marathon' => $stats['max_daily'] >= 10,
@@ -350,7 +407,7 @@ class AchievementService
 
             'early_bird' => ['current' => $stats['early_bird'] ? 1 : 0, 'target' => 1],
             'night_owl' => ['current' => $stats['night_owl'] ? 1 : 0, 'target' => 1],
-            'weekend_warrior' => ['current' => min($stats['weekend_beers'], 10), 'target' => 10],
+            'weekend_warrior' => ['current' => min($stats['weekend_beers'], 20), 'target' => 20],
 
             'marathon' => ['current' => min($stats['max_daily'], 5), 'target' => 5],
             'ultra_marathon' => ['current' => min($stats['max_daily'], 10), 'target' => 10],

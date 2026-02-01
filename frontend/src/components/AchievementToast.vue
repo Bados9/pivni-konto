@@ -61,10 +61,13 @@ function showNext() {
           </div>
           <div>
             <p class="text-xs text-beer-200 uppercase tracking-wider font-medium">
-              Novy achievement!
+              {{ current.timesUnlocked > 1 ? `Achievement ${current.timesUnlocked}×!` : 'Novy achievement!' }}
             </p>
-            <p class="text-lg font-bold text-white">
+            <p class="text-lg font-bold text-white flex items-center gap-2">
               {{ current.name }}
+              <span v-if="current.timesUnlocked > 1" class="text-sm bg-white/20 px-2 py-0.5 rounded-full">
+                {{ current.timesUnlocked }}×
+              </span>
             </p>
           </div>
         </div>
