@@ -8,9 +8,11 @@ class AuthControllerTest extends ApiTestCase
 {
     public function testRegisterSuccess(): void
     {
+        $email = 'newuser_' . uniqid() . '@example.com';
+
         $this->apiRequest('POST', '/api/auth/register', [
             'name' => 'New User',
-            'email' => 'newuser@example.com',
+            'email' => $email,
             'password' => 'password123',
         ]);
 
@@ -19,14 +21,14 @@ class AuthControllerTest extends ApiTestCase
         $data = $this->getResponseData();
         $this->assertEquals('Registrace úspěšná', $data['message']);
         $this->assertEquals('New User', $data['user']['name']);
-        $this->assertEquals('newuser@example.com', $data['user']['email']);
+        $this->assertEquals($email, $data['user']['email']);
         $this->assertArrayHasKey('id', $data['user']);
     }
 
     public function testRegisterMissingFields(): void
     {
         $this->apiRequest('POST', '/api/auth/register', [
-            'email' => 'test@example.com',
+            'email' => 'test_' . uniqid() . '@example.com',
         ]);
 
         $this->assertResponseStatusCodeSame(400);
@@ -39,7 +41,7 @@ class AuthControllerTest extends ApiTestCase
     {
         $this->apiRequest('POST', '/api/auth/register', [
             'name' => 'Test User',
-            'email' => 'test@example.com',
+            'email' => 'test_' . uniqid() . '@example.com',
             'password' => '123',
         ]);
 
@@ -51,11 +53,12 @@ class AuthControllerTest extends ApiTestCase
 
     public function testRegisterDuplicateEmail(): void
     {
-        $this->createUser('existing@example.com');
+        $email = 'existing_' . uniqid() . '@example.com';
+        $this->createUser($email);
 
         $this->apiRequest('POST', '/api/auth/register', [
             'name' => 'Another User',
-            'email' => 'existing@example.com',
+            'email' => $email,
             'password' => 'password123',
         ]);
 
@@ -71,7 +74,7 @@ class AuthControllerTest extends ApiTestCase
 
     public function testMeEndpointReturnsUserData(): void
     {
-        $user = $this->createUser('auth@example.com', 'password123', 'Auth User');
+        $user = $this->createUser(null, 'password123', 'Auth User');
         $this->loginAs($user);
 
         $this->apiRequest('GET', '/api/auth/me');
@@ -80,17 +83,18 @@ class AuthControllerTest extends ApiTestCase
 
         $data = $this->getResponseData();
         $this->assertEquals('Auth User', $data['name']);
-        $this->assertEquals('auth@example.com', $data['email']);
+        $this->assertEquals($user->getEmail(), $data['email']);
         $this->assertArrayHasKey('id', $data);
         $this->assertArrayHasKey('createdAt', $data);
     }
 
     public function testLoginSuccess(): void
     {
-        $this->createUser('login@example.com', 'mypassword', 'Login User');
+        $email = 'login_' . uniqid() . '@example.com';
+        $this->createUser($email, 'mypassword', 'Login User');
 
         $this->apiRequest('POST', '/api/auth/login', [
-            'email' => 'login@example.com',
+            'email' => $email,
             'password' => 'mypassword',
         ]);
 
@@ -102,10 +106,11 @@ class AuthControllerTest extends ApiTestCase
 
     public function testLoginInvalidCredentials(): void
     {
-        $this->createUser('user@example.com', 'correctpassword');
+        $email = 'user_' . uniqid() . '@example.com';
+        $this->createUser($email, 'correctpassword');
 
         $this->apiRequest('POST', '/api/auth/login', [
-            'email' => 'user@example.com',
+            'email' => $email,
             'password' => 'wrongpassword',
         ]);
 
@@ -115,7 +120,7 @@ class AuthControllerTest extends ApiTestCase
     public function testLoginNonExistentUser(): void
     {
         $this->apiRequest('POST', '/api/auth/login', [
-            'email' => 'nonexistent@example.com',
+            'email' => 'nonexistent_' . uniqid() . '@example.com',
             'password' => 'anypassword',
         ]);
 
