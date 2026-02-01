@@ -128,7 +128,12 @@ onMounted(() => {
         >
           <span class="text-2xl">{{ achievement.icon }}</span>
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-sm truncate">{{ achievement.name }}</p>
+            <div class="flex items-center gap-2">
+              <p class="font-medium text-sm truncate">{{ achievement.name }}</p>
+              <span v-if="achievement.timesUnlocked > 1" class="text-xs bg-beer-600 text-white px-1.5 py-0.5 rounded-full font-medium">
+                {{ achievement.timesUnlocked }}×
+              </span>
+            </div>
             <p class="text-xs text-gray-400 truncate">{{ achievement.description }}</p>
           </div>
           <span class="text-green-500">✓</span>
@@ -183,6 +188,9 @@ onMounted(() => {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <p class="font-medium text-sm">{{ achievement.name }}</p>
+              <span v-if="achievement.unlocked && achievement.timesUnlocked > 1" class="text-xs bg-beer-600 text-white px-1.5 py-0.5 rounded-full font-medium">
+                {{ achievement.timesUnlocked }}×
+              </span>
               <span v-if="achievement.unlocked" class="text-green-500 text-xs">✓</span>
             </div>
             <p class="text-xs text-gray-400 mb-1">{{ achievement.description }}</p>
