@@ -10,15 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
-        image: mysql:8.0
+      postgres:
+        image: postgres:16-alpine
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: test_db
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="pg_isready"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=3
@@ -31,7 +32,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, pdo_mysql, intl
+          extensions: mbstring, xml, pdo_pgsql, intl
           coverage: xdebug
 
       - name: Get Composer cache directory
@@ -46,6 +47,20 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
+      - name: Create .env for CI
+        working-directory: backend
+        run: |
+          cat > .env << 'EOF'
+          APP_ENV=test
+          APP_SECRET=ci_test_secret
+          DATABASE_URL=postgresql://test:test@127.0.0.1:5432/test_db?serverVersion=16&charset=utf8
+          CORS_ALLOW_ORIGIN='^https?://localhost(:[0-9]+)?$'
+          JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private-test.pem
+          JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public-test.pem
+          JWT_PASSPHRASE=test
+          DEFAULT_URI=http://localhost
+          EOF
+
       - name: Install dependencies
         working-directory: backend
         run: composer install --prefer-dist --no-progress
@@ -57,11 +72,18 @@ jobs:
           openssl genpkey -algorithm RSA -out config/jwt/private-test.pem -pkeyopt rsa_keygen_bits:4096
           openssl rsa -pubout -in config/jwt/private-test.pem -out config/jwt/public-test.pem
 
+      - name: Create database schema
+        working-directory: backend
+        env:
+          APP_ENV: test
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test_db?serverVersion=16&charset=utf8
+        run: php bin/console doctrine:schema:create --env=test
+
       - name: Run PHPUnit tests
         working-directory: backend
         env:
           APP_ENV: test
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/test_db
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test_db?serverVersion=16&charset=utf8
         run: ./vendor/bin/phpunit --testdox
 
   frontend-tests:
@@ -99,6 +121,20 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+
+      - name: Create .env for CI
+        working-directory: backend
+        run: |
+          cat > .env << 'EOF'
+          APP_ENV=test
+          APP_SECRET=ci_test_secret
+          DATABASE_URL=postgresql://localhost/test
+          CORS_ALLOW_ORIGIN='^https?://localhost(:[0-9]+)?$'
+          JWT_SECRET_KEY=%kernel.project_dir%/config/jwt/private.pem
+          JWT_PUBLIC_KEY=%kernel.project_dir%/config/jwt/public.pem
+          JWT_PASSPHRASE=test
+          DEFAULT_URI=http://localhost
+          EOF
 
       - name: Install PHP dependencies
         working-directory: backend
