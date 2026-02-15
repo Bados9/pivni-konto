@@ -368,12 +368,24 @@ class BeerEntryRepository extends ServiceEntityRepository
             $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $quantity;
         }
 
-        // Calculate max daily and consecutive days from daily counts
+        // Calculate max daily, consecutive days and days with X+ beers from daily counts
         $maxDaily = 0;
         $consecutiveDays = 0;
+        $daysWith5Beers = 0;
+        $daysWith10Beers = 0;
 
         if (!empty($dailyCounts)) {
             $maxDaily = max($dailyCounts);
+
+            // Count days with 5+ and 10+ beers
+            foreach ($dailyCounts as $count) {
+                if ($count >= 5) {
+                    $daysWith5Beers++;
+                }
+                if ($count >= 10) {
+                    $daysWith10Beers++;
+                }
+            }
 
             // Calculate streak
             $dates = array_keys($dailyCounts);
@@ -411,6 +423,8 @@ class BeerEntryRepository extends ServiceEntityRepository
             'consecutive_days' => $consecutiveDays,
             'early_bird' => $earlyBird,
             'night_owl' => $nightOwl,
+            'days_with_5_beers' => $daysWith5Beers,
+            'days_with_10_beers' => $daysWith10Beers,
         ];
     }
 }
