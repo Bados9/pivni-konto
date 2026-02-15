@@ -329,7 +329,7 @@ onMounted(async () => {
             type="text"
             placeholder="Zadejte kód skupiny"
             class="input mb-4 uppercase"
-            maxlength="8"
+            maxlength="16"
             required
           />
 

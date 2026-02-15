@@ -20,8 +20,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new Get(security: "is_granted('ROLE_USER')"),
         new GetCollection(
             security: "is_granted('ROLE_USER')",
-            paginationEnabled: true,
-            paginationItemsPerPage: 50
+            paginationEnabled: false,
         ),
         new Post(security: "is_granted('ROLE_ADMIN')"),
     ],
