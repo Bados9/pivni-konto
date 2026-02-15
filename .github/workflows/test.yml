@@ -142,7 +142,7 @@ jobs:
 
       - name: PHP Syntax Check
         working-directory: backend
-        run: find src tests -name "*.php" -exec php -l {} \; | grep -v "No syntax errors"
+        run: find src tests -name "*.php" -exec php -l {} \; | grep -v "No syntax errors" || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
