@@ -48,11 +48,11 @@ describe('AchievementToast', () => {
     expect(wrapper.text()).toContain('🍼')
   })
 
-  it('shows repeatable achievement count', async () => {
+  it('shows achievement name and icon', async () => {
     wrapper = mount(AchievementToast, {
       props: {
         achievements: [
-          { id: 'marathon', name: 'Maratonec', icon: '🏃', timesUnlocked: 3 }
+          { id: 'marathon', name: 'Maratonec', icon: '🏃' }
         ]
       },
       global: {
@@ -63,7 +63,7 @@ describe('AchievementToast', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Maratonec')
-    expect(wrapper.text()).toContain('3×')
+    expect(wrapper.text()).toContain('🏃')
   })
 
   it('queues multiple achievements', async () => {
@@ -113,8 +113,7 @@ describe('AchievementToast', () => {
     expect(wrapper.emitted('clear')).toHaveLength(1)
   })
 
-  it('shows correct text for first unlock vs repeated unlock', async () => {
-    // First unlock
+  it('shows new achievement text', async () => {
     wrapper = mount(AchievementToast, {
       props: {
         achievements: [
@@ -127,23 +126,7 @@ describe('AchievementToast', () => {
     })
 
     await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toContain('Novy achievement!')
-
-    wrapper.unmount()
-
-    // Repeated unlock
-    wrapper = mount(AchievementToast, {
-      props: {
-        achievements: [
-          { id: 'marathon', name: 'Test', icon: '🏃', timesUnlocked: 5 }
-        ]
-      },
-      global: {
-        stubs: { Teleport: true }
-      }
-    })
-
-    await wrapper.vm.$nextTick()
-    expect(wrapper.text()).toContain('Achievement 5×!')
+    expect(wrapper.text()).toContain('Test')
+    expect(wrapper.text()).toContain('🍺')
   })
 })

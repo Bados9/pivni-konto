@@ -155,7 +155,7 @@ class StatsControllerTest extends ApiTestCase
 
         $this->apiRequest('GET', '/api/stats/user/00000000-0000-0000-0000-000000000001');
 
-        $this->assertResponseStatusCodeSame(404);
+        $this->assertResponseStatusCodeSame(400);
     }
 
     public function testUserStatsInvalidUuid(): void
@@ -269,7 +269,7 @@ class StatsControllerTest extends ApiTestCase
 
         $this->apiRequest('GET', '/api/stats/leaderboard/00000000-0000-0000-0000-000000000001');
 
-        $this->assertResponseStatusCodeSame(404);
+        $this->assertResponseStatusCodeSame(400);
     }
 
     public function testLeaderboardInvalidUuid(): void

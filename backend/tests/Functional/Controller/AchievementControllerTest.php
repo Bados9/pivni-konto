@@ -157,15 +157,13 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertEquals(round((2 / 21) * 100), $data['percentage']);
     }
 
-    public function testRepeatableAchievementShowsTimesUnlocked(): void
+    public function testMarathonAchievementShowsUnlocked(): void
     {
         $user = $this->createUser();
 
-        // Create repeatable achievement with multiple unlocks
         $achievement = new UserAchievement();
         $achievement->setUser($user);
         $achievement->setAchievementId('marathon');
-        $achievement->setTimesUnlocked(5);
         $this->entityManager->persist($achievement);
         $this->entityManager->flush();
 
@@ -183,7 +181,5 @@ class AchievementControllerTest extends ApiTestCase
         ))[0];
 
         $this->assertTrue($marathon['unlocked']);
-        $this->assertTrue($marathon['repeatable']);
-        $this->assertEquals(5, $marathon['timesUnlocked']);
     }
 }

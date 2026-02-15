@@ -83,18 +83,4 @@ abstract class ApiTestCase extends WebTestCase
         $content = $this->client->getResponse()->getContent();
         return json_decode($content, true) ?? [];
     }
-
-    protected function assertResponseStatusCodeSame(int $expectedCode): void
-    {
-        $this->assertEquals(
-            $expectedCode,
-            $this->client->getResponse()->getStatusCode(),
-            sprintf(
-                'Expected status code %d, got %d. Response: %s',
-                $expectedCode,
-                $this->client->getResponse()->getStatusCode(),
-                $this->client->getResponse()->getContent()
-            )
-        );
-    }
 }
