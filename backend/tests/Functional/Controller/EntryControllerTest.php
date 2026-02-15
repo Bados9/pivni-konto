@@ -162,7 +162,7 @@ class EntryControllerTest extends ApiTestCase
 
         $this->apiRequest('DELETE', '/api/entries/00000000-0000-0000-0000-000000000001');
 
-        $this->assertResponseStatusCodeSame(404);
+        $this->assertResponseStatusCodeSame(400);
     }
 
     public function testDeleteEntryForbiddenForOtherUser(): void

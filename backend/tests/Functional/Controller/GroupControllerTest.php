@@ -44,7 +44,10 @@ class GroupControllerTest extends ApiTestCase
         $member->setRole('admin');
         $this->entityManager->persist($member);
         $this->entityManager->flush();
+        $this->entityManager->clear();
 
+        // Re-fetch user for JWT after clear
+        $user = $this->entityManager->getRepository(\App\Entity\User::class)->findOneBy(['email' => 'test@example.com']);
         $this->loginAs($user);
 
         $this->apiRequest('GET', '/api/groups/my');

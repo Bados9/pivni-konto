@@ -8,6 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.js'],
+    env: {
+      VITE_API_URL: '/api',
+    },
     include: ['src/**/*.{test,spec}.{js,ts}'],
     coverage: {
       provider: 'v8',
