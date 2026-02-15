@@ -92,14 +92,14 @@ jobs:
             cd /var/www/pivnikonto
             git pull origin ${{ github.ref_name }}
 
-            # Rebuild and restart containers
-            docker compose down
-            docker compose up -d --build
+            # Rebuild and restart containers with production config
+            docker compose -f docker-compose.prod.yml down
+            docker compose -f docker-compose.prod.yml up -d --build
 
             # Backend
-            docker compose exec -T php composer install --no-dev --optimize-autoloader
-            docker compose exec -T php php bin/console cache:clear --env=prod
-            docker compose exec -T php php bin/console doctrine:migrations:migrate --no-interaction
+            docker compose -f docker-compose.prod.yml exec -T php composer install --no-dev --optimize-autoloader
+            docker compose -f docker-compose.prod.yml exec -T php php bin/console cache:clear --env=prod
+            docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction
 
             echo "Deployment completed successfully!"
 
