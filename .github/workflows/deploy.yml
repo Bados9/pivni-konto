@@ -89,22 +89,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd /var/www/pivni-konto
+            cd /var/www/pivnikonto
             git pull origin ${{ github.ref_name }}
 
+            # Rebuild and restart containers
+            docker compose down
+            docker compose up -d --build
+
             # Backend
-            cd backend
-            composer install --no-dev --optimize-autoloader
-            php bin/console cache:clear --env=prod
-            php bin/console doctrine:migrations:migrate --no-interaction
-
-            # Frontend
-            cd ../frontend
-            npm ci --production=false
-            npm run build
-
-            # Restart services if needed
-            sudo systemctl reload php-fpm || true
+            docker compose exec -T php composer install --no-dev --optimize-autoloader
+            docker compose exec -T php php bin/console cache:clear --env=prod
+            docker compose exec -T php php bin/console doctrine:migrations:migrate --no-interaction
 
             echo "Deployment completed successfully!"
 
