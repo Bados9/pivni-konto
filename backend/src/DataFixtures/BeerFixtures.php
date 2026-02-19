@@ -159,6 +159,9 @@ class BeerFixtures extends Fixture
             ['name' => 'Albrecht 12°', 'brewery' => 'Albrecht', 'style' => 'Lager', 'abv' => 5.0],
             ['name' => 'Cvikov Kulér', 'brewery' => 'Cvikov', 'style' => 'Lager', 'abv' => 5.0],
             ['name' => 'Vratislavice Vratislav', 'brewery' => 'Vratislavice', 'style' => 'Lager', 'abv' => 4.8],
+
+            // Pivovar Pardubice
+            ['name' => 'Pernštejn Hořká 12 ze sklepa', 'brewery' => 'Pivovar Pardubice', 'style' => 'Lager', 'abv' => 5.0],
         ];
 
         // Check for existing beers to avoid duplicates on re-run
