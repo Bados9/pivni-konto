@@ -114,8 +114,9 @@ jobs:
             cd /var/www/pivnikonto
             git pull origin ${{ github.ref_name }}
 
-            # Rebuild and restart containers with production config
+            # Remove old frontend build volume and rebuild containers
             docker compose -f docker-compose.prod.yml down
+            docker volume rm pivnikonto_frontend_build || true
             docker compose -f docker-compose.prod.yml up -d --build
 
             # Backend
