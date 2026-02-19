@@ -53,6 +53,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(data) {
+    try {
+      user.value = await api.updateProfile(data)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
   function logout() {
     api.setToken(null)
     user.value = null
@@ -65,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     init,
     login,
     register,
+    updateProfile,
     logout
   }
 })

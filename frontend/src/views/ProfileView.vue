@@ -13,6 +13,41 @@ const achievements = ref({ summary: null, grouped: {} })
 const showAllAchievements = ref(false)
 const selectedCategory = ref('all')
 
+const editingName = ref(false)
+const editName = ref('')
+const editNameError = ref('')
+const editNameLoading = ref(false)
+
+function startEditingName() {
+  editName.value = auth.user.name
+  editNameError.value = ''
+  editingName.value = true
+}
+
+function cancelEditingName() {
+  editingName.value = false
+  editNameError.value = ''
+}
+
+async function saveName() {
+  const trimmed = editName.value.trim()
+  if (trimmed.length < 2 || trimmed.length > 100) {
+    editNameError.value = 'Jm\u00e9no mus\u00ed m\u00edt 2 a\u017e 100 znak\u016f'
+    return
+  }
+
+  editNameLoading.value = true
+  const result = await auth.updateProfile({ name: trimmed })
+  editNameLoading.value = false
+
+  if (!result.success) {
+    editNameError.value = result.error
+    return
+  }
+
+  editingName.value = false
+}
+
 const categoryNames = {
   milestones: '🎯 Milníky',
   volume: '🍺 Objem',
@@ -77,8 +112,45 @@ onMounted(() => {
         <div class="w-16 h-16 rounded-full bg-beer-500 flex items-center justify-center text-2xl font-bold">
           {{ auth.user.name.charAt(0).toUpperCase() }}
         </div>
-        <div>
-          <h2 class="text-xl font-bold">{{ auth.user.name }}</h2>
+        <div class="flex-1 min-w-0">
+          <div v-if="!editingName" class="flex items-center gap-2">
+            <h2 class="text-xl font-bold truncate">{{ auth.user.name }}</h2>
+            <button
+              @click="startEditingName"
+              class="text-gray-400 hover:text-beer-500 transition-colors flex-shrink-0"
+              title="Upravit jméno"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          </div>
+          <div v-if="editingName" class="space-y-2">
+            <div class="flex items-center gap-2">
+              <input
+                v-model="editName"
+                type="text"
+                class="input text-sm py-1.5"
+                maxlength="100"
+                @keyup.enter="saveName"
+                @keyup.escape="cancelEditingName"
+              />
+              <button
+                @click="saveName"
+                :disabled="editNameLoading"
+                class="btn btn-primary text-xs py-1.5 px-3 flex-shrink-0"
+              >
+                {{ editNameLoading ? '...' : 'Uložit' }}
+              </button>
+              <button
+                @click="cancelEditingName"
+                class="btn btn-secondary text-xs py-1.5 px-3 flex-shrink-0"
+              >
+                Zrušit
+              </button>
+            </div>
+            <p v-if="editNameError" class="text-red-500 text-xs">{{ editNameError }}</p>
+          </div>
           <p class="text-gray-400 text-sm">{{ auth.user.email }}</p>
         </div>
       </div>

@@ -82,6 +82,10 @@ class ApiService {
     return this.get('/auth/me')
   }
 
+  updateProfile(data) {
+    return this.patch('/auth/profile', data)
+  }
+
   // Groups
   getMyGroups() {
     return this.get('/groups/my')
