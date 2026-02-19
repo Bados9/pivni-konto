@@ -6,6 +6,9 @@ import { api } from '@/services/api'
 vi.mock('@/services/api', () => ({
   api: {
     setToken: vi.fn(),
+    setRefreshToken: vi.fn(),
+    getRefreshToken: vi.fn().mockReturnValue(null),
+    refreshAccessToken: vi.fn().mockResolvedValue(false),
     getMe: vi.fn(),
     login: vi.fn(),
     register: vi.fn()
@@ -36,8 +39,9 @@ describe('Auth Store', () => {
   })
 
   describe('init', () => {
-    it('does nothing when no token in localStorage', async () => {
+    it('does nothing when no token and no refresh token', async () => {
       localStorage.getItem.mockReturnValue(null)
+      api.getRefreshToken.mockReturnValue(null)
 
       await authStore.init()
 
@@ -56,13 +60,15 @@ describe('Auth Store', () => {
       expect(authStore.user).toEqual({ id: '1', name: 'Test User' })
     })
 
-    it('clears token on fetch error', async () => {
+    it('clears token and refresh token on fetch error', async () => {
       localStorage.getItem.mockReturnValue('invalid-token')
       api.getMe.mockRejectedValue(new Error('Unauthorized'))
+      api.refreshAccessToken.mockResolvedValue(false)
 
       await authStore.init()
 
       expect(api.setToken).toHaveBeenCalledWith(null)
+      expect(api.setRefreshToken).toHaveBeenCalledWith(null)
       expect(authStore.user).toBeNull()
     })
 
@@ -93,8 +99,19 @@ describe('Auth Store', () => {
       expect(result.success).toBe(true)
       expect(api.login).toHaveBeenCalledWith('test@example.com', 'password')
       expect(api.setToken).toHaveBeenCalledWith('new-token')
+      expect(api.setRefreshToken).toHaveBeenCalledWith(null)
       expect(authStore.user).toEqual({ id: '1', name: 'Logged User' })
       expect(authStore.isAuthenticated).toBe(true)
+    })
+
+    it('stores refresh token when rememberMe is true', async () => {
+      api.login.mockResolvedValue({ token: 'new-token', refreshToken: 'refresh-123' })
+      api.getMe.mockResolvedValue({ id: '1', name: 'Logged User' })
+
+      const result = await authStore.login('test@example.com', 'password', true)
+
+      expect(result.success).toBe(true)
+      expect(api.setRefreshToken).toHaveBeenCalledWith('refresh-123')
     })
 
     it('returns error on failed login', async () => {
@@ -148,12 +165,13 @@ describe('Auth Store', () => {
   })
 
   describe('logout', () => {
-    it('clears token and user', () => {
+    it('clears token, refresh token and user', () => {
       authStore.user = { id: '1', name: 'Test' }
 
       authStore.logout()
 
       expect(api.setToken).toHaveBeenCalledWith(null)
+      expect(api.setRefreshToken).toHaveBeenCalledWith(null)
       expect(authStore.user).toBeNull()
       expect(authStore.isAuthenticated).toBe(false)
     })

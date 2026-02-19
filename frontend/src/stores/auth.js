@@ -11,27 +11,51 @@ export const useAuthStore = defineStore('auth', () => {
   async function init() {
     const token = localStorage.getItem('token')
     if (!token) {
-      return
-    }
+      const refreshToken = api.getRefreshToken()
+      if (!refreshToken) {
+        return
+      }
 
-    api.setToken(token)
+      const refreshed = await api.refreshAccessToken()
+      if (!refreshed) {
+        return
+      }
+    } else {
+      api.setToken(token)
+    }
 
     try {
       loading.value = true
       user.value = await api.getMe()
-    } catch (error) {
+    } catch {
+      const refreshed = await api.refreshAccessToken()
+      if (refreshed) {
+        try {
+          user.value = await api.getMe()
+          return
+        } catch {}
+      }
+
       api.setToken(null)
+      api.setRefreshToken(null)
       user.value = null
     } finally {
       loading.value = false
     }
   }
 
-  async function login(email, password) {
+  async function login(email, password, rememberMe = false) {
     loading.value = true
     try {
       const response = await api.login(email, password)
       api.setToken(response.token)
+
+      if (rememberMe && response.refreshToken) {
+        api.setRefreshToken(response.refreshToken)
+      } else {
+        api.setRefreshToken(null)
+      }
+
       user.value = await api.getMe()
       return { success: true }
     } catch (error) {
@@ -45,7 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       await api.register(name, email, password)
-      return await login(email, password)
+      return await login(email, password, false)
     } catch (error) {
       return { success: false, error: error.message }
     } finally {
@@ -64,6 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function logout() {
     api.setToken(null)
+    api.setRefreshToken(null)
     user.value = null
   }
 
