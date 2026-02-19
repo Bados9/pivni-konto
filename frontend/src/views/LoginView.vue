@@ -58,6 +58,12 @@ async function handleSubmit() {
           />
         </div>
 
+        <div class="text-right">
+          <router-link to="/forgot-password" class="text-sm text-gray-400 hover:text-beer-500 transition-colors">
+            Zapomenuté heslo?
+          </router-link>
+        </div>
+
         <div v-if="error" class="text-red-500 text-sm text-center">
           {{ error }}
         </div>
