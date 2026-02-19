@@ -16,3 +16,7 @@ services:
     App\State\BeerEntryProcessor:
         arguments:
             $persistProcessor: '@api_platform.doctrine.orm.state.persist_processor'
+
+    App\EventListener\AuthenticationSuccessListener:
+        tags:
+            - { name: kernel.event_listener, event: lexik_jwt_authentication.on_authentication_success, method: onAuthenticationSuccess }

@@ -3,6 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api'
 class ApiService {
   constructor() {
     this.token = localStorage.getItem('token')
+    this._refreshPromise = null
   }
 
   setToken(token) {
@@ -12,6 +13,59 @@ class ApiService {
     } else {
       localStorage.removeItem('token')
     }
+  }
+
+  setRefreshToken(token) {
+    if (token) {
+      localStorage.setItem('refreshToken', token)
+    } else {
+      localStorage.removeItem('refreshToken')
+    }
+  }
+
+  getRefreshToken() {
+    return localStorage.getItem('refreshToken')
+  }
+
+  async refreshAccessToken() {
+    const refreshToken = this.getRefreshToken()
+    if (!refreshToken) {
+      return false
+    }
+
+    if (this._refreshPromise) {
+      return this._refreshPromise
+    }
+
+    this._refreshPromise = (async () => {
+      try {
+        const url = `${API_URL}/token/refresh`
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        })
+
+        if (!response.ok) {
+          this.setRefreshToken(null)
+          return false
+        }
+
+        const data = await response.json()
+        this.setToken(data.token)
+        if (data.refreshToken) {
+          this.setRefreshToken(data.refreshToken)
+        }
+        return true
+      } catch {
+        this.setRefreshToken(null)
+        return false
+      } finally {
+        this._refreshPromise = null
+      }
+    })()
+
+    return this._refreshPromise
   }
 
   async request(endpoint, options = {}) {
@@ -25,13 +79,22 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.token}`
     }
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       headers
     })
 
+    if (response.status === 401 && this.getRefreshToken()) {
+      const refreshed = await this.refreshAccessToken()
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${this.token}`
+        response = await fetch(url, { ...options, headers })
+      }
+    }
+
     if (response.status === 401) {
       this.setToken(null)
+      this.setRefreshToken(null)
       window.dispatchEvent(new CustomEvent('auth:unauthorized'))
       throw new Error('Unauthorized')
     }
@@ -80,6 +143,10 @@ class ApiService {
 
   getMe() {
     return this.get('/auth/me')
+  }
+
+  updateProfile(data) {
+    return this.patch('/auth/profile', data)
   }
 
   // Groups

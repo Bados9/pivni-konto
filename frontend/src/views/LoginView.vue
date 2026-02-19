@@ -8,6 +8,7 @@ const auth = useAuthStore()
 
 const email = ref('')
 const password = ref('')
+const rememberMe = ref(false)
 const error = ref('')
 const loading = ref(false)
 
@@ -15,7 +16,7 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
 
-  const result = await auth.login(email.value, password.value)
+  const result = await auth.login(email.value, password.value, rememberMe.value)
 
   loading.value = false
 
@@ -56,6 +57,17 @@ async function handleSubmit() {
             class="input"
             required
           />
+        </div>
+
+        <div class="flex items-center">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              v-model="rememberMe"
+              type="checkbox"
+              class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-beer-500 focus:ring-beer-500 focus:ring-offset-0"
+            />
+            <span class="text-sm text-gray-400">Zůstat přihlášen</span>
+          </label>
         </div>
 
         <div v-if="error" class="text-red-500 text-sm text-center">
