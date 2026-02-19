@@ -32,6 +32,8 @@ services:
       JWT_PUBLIC_KEY: '%kernel.project_dir%/config/jwt/public.pem'
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:-pivnikonto}
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$$"
+      MAILER_DSN: ${MAILER_DSN:-null://null}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     networks:
       - pivni-konto
 

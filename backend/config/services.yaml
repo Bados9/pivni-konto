@@ -1,4 +1,5 @@
 parameters:
+    app.frontend_url: '%env(FRONTEND_URL)%'
 
 services:
     _defaults:

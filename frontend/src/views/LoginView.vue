@@ -59,7 +59,7 @@ async function handleSubmit() {
           />
         </div>
 
-        <div class="flex items-center">
+        <div class="flex items-center justify-between">
           <label class="flex items-center gap-2 cursor-pointer select-none">
             <input
               v-model="rememberMe"
@@ -68,6 +68,9 @@ async function handleSubmit() {
             />
             <span class="text-sm text-gray-400">Zůstat přihlášen</span>
           </label>
+          <router-link to="/forgot-password" class="text-sm text-gray-400 hover:text-beer-500 transition-colors">
+            Zapomenuté heslo?
+          </router-link>
         </div>
 
         <div v-if="error" class="text-red-500 text-sm text-center">
