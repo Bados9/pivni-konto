@@ -5,3 +5,5 @@ framework:
             policy: 'no_limit'
         group_join:
             policy: 'no_limit'
+        password_reset:
+            policy: 'no_limit'
