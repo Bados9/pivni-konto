@@ -53,7 +53,7 @@ services:
     volumes:
       - ./frontend:/app
       - frontend_build:/app/dist
-    command: sh -c "npm install && npm run build"
+    command: sh -c "npm ci && npm run build"
     networks:
       - pivnikonto
 

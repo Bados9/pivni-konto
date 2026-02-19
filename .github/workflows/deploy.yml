@@ -96,7 +96,6 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: test
-    if: always()
     environment: production
 
     steps:
@@ -111,7 +110,10 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            set -e
             cd /var/www/pivnikonto
+
+            git checkout -- .
             git pull origin ${{ github.ref_name }}
 
             # Remove old frontend build volume and rebuild containers

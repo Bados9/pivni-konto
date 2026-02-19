@@ -3,6 +3,10 @@ set -e
 
 echo "🚀 Deploying Pivní Konto..."
 
+# Discard any local changes (e.g. from npm install in node container)
+echo "🧹 Cleaning local changes..."
+git checkout -- .
+
 # Pull latest code
 echo "📥 Pulling latest code..."
 git pull origin master
