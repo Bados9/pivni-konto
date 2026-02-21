@@ -5,6 +5,7 @@ namespace App\Tests\Unit\Service;
 use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Repository\BeerEntryRepository;
+use App\Repository\GroupAchievementRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\UserAchievementRepository;
 use App\Service\AchievementService;
@@ -18,6 +19,7 @@ class AchievementServiceTest extends TestCase
     private MockObject&BeerEntryRepository $entryRepository;
     private MockObject&GroupMemberRepository $memberRepository;
     private MockObject&UserAchievementRepository $achievementRepository;
+    private MockObject&GroupAchievementRepository $groupAchievementRepository;
     private MockObject&EntityManagerInterface $entityManager;
 
     protected function setUp(): void
@@ -25,12 +27,17 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository = $this->createMock(BeerEntryRepository::class);
         $this->memberRepository = $this->createMock(GroupMemberRepository::class);
         $this->achievementRepository = $this->createMock(UserAchievementRepository::class);
+        $this->groupAchievementRepository = $this->createMock(GroupAchievementRepository::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
+
+        $this->groupAchievementRepository->method('countDistinctDaysByUserAndType')->willReturn(0);
+        $this->groupAchievementRepository->method('getMaxConsecutiveDays')->willReturn(0);
 
         $this->service = new AchievementService(
             $this->entryRepository,
             $this->memberRepository,
             $this->achievementRepository,
+            $this->groupAchievementRepository,
             $this->entityManager,
         );
     }
@@ -322,7 +329,7 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(21, $result['total']);
+        $this->assertEquals(23, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 

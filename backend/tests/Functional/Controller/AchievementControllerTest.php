@@ -29,7 +29,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('summary', $data);
 
         // Check that all 21 achievements are returned
-        $this->assertCount(21, $data['achievements']);
+        $this->assertCount(23, $data['achievements']);
 
         // Check achievement structure
         $firstAchievement = $data['achievements'][0];
@@ -124,7 +124,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('percentage', $data);
         $this->assertArrayHasKey('recent', $data);
 
-        $this->assertEquals(21, $data['total']);
+        $this->assertEquals(23, $data['total']);
         $this->assertIsArray($data['recent']);
     }
 
@@ -154,7 +154,7 @@ class AchievementControllerTest extends ApiTestCase
         $data = $this->getResponseData();
 
         $this->assertEquals(2, $data['unlocked']);
-        $this->assertEquals(round((2 / 21) * 100), $data['percentage']);
+        $this->assertEquals(round((2 / 23) * 100), $data['percentage']);
     }
 
     public function testMarathonAchievementShowsUnlocked(): void

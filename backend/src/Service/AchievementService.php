@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Enum\GroupRole;
 use App\Repository\BeerEntryRepository;
+use App\Repository\GroupAchievementRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\UserAchievementRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -152,12 +153,27 @@ class AchievementService
             'icon' => '💕',
             'category' => 'special',
         ],
+
+        // Skupinové
+        'regular_drinker' => [
+            'name' => 'Pravidelný pijan',
+            'description' => 'Staň se pijakem dne 10×',
+            'icon' => '🎖️',
+            'category' => 'group',
+        ],
+        'unbeatable' => [
+            'name' => 'Neporazitelný',
+            'description' => 'Buď pijakem dne 3 dny po sobě',
+            'icon' => '💎',
+            'category' => 'group',
+        ],
     ];
 
     public function __construct(
         private BeerEntryRepository $entryRepository,
         private GroupMemberRepository $memberRepository,
         private UserAchievementRepository $achievementRepository,
+        private GroupAchievementRepository $groupAchievementRepository,
         private EntityManagerInterface $entityManager,
     ) {
     }
@@ -333,6 +349,10 @@ class AchievementService
             }
         }
 
+        // Group award stats (from persisted GroupAchievement)
+        $drinkerOfDayCount = $this->groupAchievementRepository->countDistinctDaysByUserAndType($user, 'drinker_of_day');
+        $drinkerOfDayConsecutive = $this->groupAchievementRepository->getMaxConsecutiveDays($user, 'drinker_of_day');
+
         return [
             'total_beers' => $dbStats['total_beers'],
             'total_volume_ml' => $dbStats['total_volume_ml'],
@@ -350,6 +370,8 @@ class AchievementService
             'days_with_10_beers' => $dbStats['days_with_10_beers'],
             'group_count' => count($memberships),
             'is_founder' => $isFounder,
+            'drinker_of_day_count' => $drinkerOfDayCount,
+            'drinker_of_day_consecutive' => $drinkerOfDayConsecutive,
         ];
     }
 
@@ -382,6 +404,9 @@ class AchievementService
             'size_matters' => $stats['large_beers'] >= 10,
             'small_but_mighty' => $stats['small_beers'] >= 10,
             'loyal_fan' => $stats['max_loyal'] >= 10,
+
+            'regular_drinker' => $stats['drinker_of_day_count'] >= 10,
+            'unbeatable' => $stats['drinker_of_day_consecutive'] >= 3,
 
             default => false,
         };
@@ -416,6 +441,9 @@ class AchievementService
             'size_matters' => ['current' => min($stats['large_beers'], 10), 'target' => 10],
             'small_but_mighty' => ['current' => min($stats['small_beers'], 10), 'target' => 10],
             'loyal_fan' => ['current' => min($stats['max_loyal'], 10), 'target' => 10],
+
+            'regular_drinker' => ['current' => min($stats['drinker_of_day_count'], 10), 'target' => 10],
+            'unbeatable' => ['current' => min($stats['drinker_of_day_consecutive'], 3), 'target' => 3],
 
             default => ['current' => 0, 'target' => 1],
         };
