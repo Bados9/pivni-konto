@@ -3,10 +3,10 @@
 namespace App\Service;
 
 use App\Entity\Group;
-use App\Entity\GroupAchievement;
+use App\Entity\UserAchievement;
 use App\Repository\BeerEntryRepository;
-use App\Repository\GroupAchievementRepository;
 use App\Repository\GroupRepository;
+use App\Repository\UserAchievementRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 class GroupAchievementService
@@ -22,7 +22,7 @@ class GroupAchievementService
 
     public function __construct(
         private BeerEntryRepository $entryRepository,
-        private GroupAchievementRepository $achievementRepository,
+        private UserAchievementRepository $achievementRepository,
         private GroupRepository $groupRepository,
         private EntityManagerInterface $em,
         private DrinkingDayService $drinkingDayService,
@@ -59,19 +59,17 @@ class GroupAchievementService
         $saved = 0;
 
         foreach ($awards as $type => $awardData) {
-            $existing = $this->achievementRepository->findExisting($group, $type, $forDate);
-            if ($existing !== null) {
+            $user = $this->em->getReference('App\Entity\User', $awardData['userId']);
+
+            // Dedup: check if user already has this achievement for this date
+            if ($this->achievementRepository->hasAchievementOnDate($user, $type, $forDate)) {
                 continue;
             }
 
-            $user = $this->em->getReference('App\Entity\User', $awardData['userId']);
-
-            $achievement = new GroupAchievement();
-            $achievement->setGroup($group);
+            $achievement = new UserAchievement();
             $achievement->setUser($user);
-            $achievement->setType($type);
-            $achievement->setDate($forDate);
-            $achievement->setMetadata(['value' => $awardData['value']]);
+            $achievement->setAchievementId($type);
+            $achievement->setUnlockedAt($forDate->setTime(12, 0));
 
             $this->em->persist($achievement);
             $saved++;

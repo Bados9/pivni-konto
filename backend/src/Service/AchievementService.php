@@ -6,7 +6,6 @@ use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Enum\GroupRole;
 use App\Repository\BeerEntryRepository;
-use App\Repository\GroupAchievementRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\UserAchievementRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -173,7 +172,6 @@ class AchievementService
         private BeerEntryRepository $entryRepository,
         private GroupMemberRepository $memberRepository,
         private UserAchievementRepository $achievementRepository,
-        private GroupAchievementRepository $groupAchievementRepository,
         private EntityManagerInterface $entityManager,
     ) {
     }
@@ -187,12 +185,13 @@ class AchievementService
     public function checkAndUnlockAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
+        $unlockedCounts = $this->achievementRepository->getUnlockedWithCounts($user);
         $newlyUnlocked = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
             $isRepeatable = $definition['repeatable'] ?? false;
-            $alreadyHas = isset($unlockedData[$id]);
+            $currentCount = $unlockedCounts[$id] ?? 0;
+            $alreadyHas = $currentCount > 0;
 
             // Non-repeatable achievements - skip if already unlocked
             if ($alreadyHas && !$isRepeatable) {
@@ -202,23 +201,17 @@ class AchievementService
             // For repeatable achievements, check if user earned more unlocks
             if ($isRepeatable) {
                 $targetCount = $this->getRepeatableCount($id, $stats);
-                $currentCount = $alreadyHas ? $unlockedData[$id]['timesUnlocked'] : 0;
 
                 if ($targetCount <= $currentCount) {
                     continue;
                 }
 
-                // User earned more unlocks
-                if ($alreadyHas) {
-                    $achievement = $unlockedData[$id]['entity'];
-                    $achievement->setTimesUnlocked($targetCount);
-                    $achievement->setUnlockedAt(new \DateTimeImmutable());
-                }
-                if (!$alreadyHas) {
+                // Create new rows for the difference
+                $newCount = $targetCount - $currentCount;
+                for ($i = 0; $i < $newCount; $i++) {
                     $achievement = new UserAchievement();
                     $achievement->setUser($user);
                     $achievement->setAchievementId($id);
-                    $achievement->setTimesUnlocked($targetCount);
                     $this->entityManager->persist($achievement);
                 }
 
@@ -280,13 +273,13 @@ class AchievementService
     public function getUserAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
+        $unlockedCounts = $this->achievementRepository->getUnlockedWithCounts($user);
         $achievements = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
             $isRepeatable = $definition['repeatable'] ?? false;
-            $unlocked = isset($unlockedData[$id]);
-            $timesUnlocked = $unlocked ? $unlockedData[$id]['timesUnlocked'] : 0;
+            $timesUnlocked = $unlockedCounts[$id] ?? 0;
+            $unlocked = $timesUnlocked > 0;
             $progress = $this->getAchievementProgress($id, $stats);
 
             $achievements[] = [
@@ -349,9 +342,9 @@ class AchievementService
             }
         }
 
-        // Group award stats (from persisted GroupAchievement)
-        $drinkerOfDayCount = $this->groupAchievementRepository->countDistinctDaysByUserAndType($user, 'drinker_of_day');
-        $drinkerOfDayConsecutive = $this->groupAchievementRepository->getMaxConsecutiveDays($user, 'drinker_of_day');
+        // Group award stats (from UserAchievement rows with drinker_of_day achievementId)
+        $drinkerOfDayCount = $this->achievementRepository->countByUserAndAchievement($user, 'drinker_of_day');
+        $drinkerOfDayConsecutive = $this->achievementRepository->getMaxConsecutiveDays($user, 'drinker_of_day');
 
         return [
             'total_beers' => $dbStats['total_beers'],

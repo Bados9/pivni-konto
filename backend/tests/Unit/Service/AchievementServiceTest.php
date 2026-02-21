@@ -5,7 +5,6 @@ namespace App\Tests\Unit\Service;
 use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Repository\BeerEntryRepository;
-use App\Repository\GroupAchievementRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\UserAchievementRepository;
 use App\Service\AchievementService;
@@ -19,7 +18,6 @@ class AchievementServiceTest extends TestCase
     private MockObject&BeerEntryRepository $entryRepository;
     private MockObject&GroupMemberRepository $memberRepository;
     private MockObject&UserAchievementRepository $achievementRepository;
-    private MockObject&GroupAchievementRepository $groupAchievementRepository;
     private MockObject&EntityManagerInterface $entityManager;
 
     protected function setUp(): void
@@ -27,17 +25,15 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository = $this->createMock(BeerEntryRepository::class);
         $this->memberRepository = $this->createMock(GroupMemberRepository::class);
         $this->achievementRepository = $this->createMock(UserAchievementRepository::class);
-        $this->groupAchievementRepository = $this->createMock(GroupAchievementRepository::class);
         $this->entityManager = $this->createMock(EntityManagerInterface::class);
 
-        $this->groupAchievementRepository->method('countDistinctDaysByUserAndType')->willReturn(0);
-        $this->groupAchievementRepository->method('getMaxConsecutiveDays')->willReturn(0);
+        $this->achievementRepository->method('countByUserAndAchievement')->willReturn(0);
+        $this->achievementRepository->method('getMaxConsecutiveDays')->willReturn(0);
 
         $this->service = new AchievementService(
             $this->entryRepository,
             $this->memberRepository,
             $this->achievementRepository,
-            $this->groupAchievementRepository,
             $this->entityManager,
         );
     }
@@ -182,6 +178,7 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+        $this->entityManager->expects($this->exactly(4))->method('persist');
 
         $result = $this->service->checkAndUnlockAchievements($user);
 
@@ -198,20 +195,15 @@ class AchievementServiceTest extends TestCase
         $stats['total_beers'] = 1;
         $stats['days_with_5_beers'] = 5;
 
-        $existingAchievement = new UserAchievement();
-        $existingAchievement->setUser($user);
-        $existingAchievement->setAchievementId('marathon');
-        $existingAchievement->setTimesUnlocked(3);
-
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
-            'marathon' => [
-                'timesUnlocked' => 3,
-                'entity' => $existingAchievement,
-            ],
-            'first_beer' => ['timesUnlocked' => 1, 'entity' => new UserAchievement()],
+            'marathon' => 3,
+            'first_beer' => 1,
         ]);
+
+        // 2 new marathon rows (5-3) persisted
+        $this->entityManager->expects($this->exactly(2))->method('persist');
 
         $result = $this->service->checkAndUnlockAchievements($user);
 
@@ -230,7 +222,7 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
-            'first_beer' => ['timesUnlocked' => 1, 'entity' => new UserAchievement()],
+            'first_beer' => 1,
         ]);
 
         $this->entityManager->expects($this->never())->method('flush');
@@ -288,7 +280,7 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
-            'first_beer' => ['timesUnlocked' => 1, 'entity' => new UserAchievement()],
+            'first_beer' => 1,
         ]);
 
         $result = $this->service->getUserAchievements($user);
@@ -320,7 +312,7 @@ class AchievementServiceTest extends TestCase
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
-            'first_beer' => ['timesUnlocked' => 1, 'entity' => new UserAchievement()],
+            'first_beer' => 1,
         ]);
 
         $result = $this->service->getAchievementsSummary($user);
