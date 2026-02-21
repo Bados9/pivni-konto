@@ -44,7 +44,8 @@ services:
       POSTGRES_PASSWORD: pivnikonto
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Port dostupný pouze uvnitř Docker networku
+    ports:
+      - "5434:5432"
     networks:
       - pivni-konto
 
@@ -55,6 +56,30 @@ services:
       - redis_data:/data
     networks:
       - pivni-konto
+
+  cron:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: pivni-konto-cron
+    user: root
+    volumes:
+      - ./backend:/var/www/html
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      APP_ENV: dev
+      APP_SECRET: ${APP_SECRET:-change_this_secret_in_production}
+      DATABASE_URL: postgresql://pivnikonto:pivnikonto@postgres:5432/pivnikonto?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET_KEY: '%kernel.project_dir%/config/jwt/private.pem'
+      JWT_PUBLIC_KEY: '%kernel.project_dir%/config/jwt/public.pem'
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-pivnikonto}
+      CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$$"
+    networks:
+      - pivni-konto
+    entrypoint: /bin/sh -c "echo '1 5 * * * cd /var/www/html && php bin/console app:evaluate-daily-group-awards >> /var/log/cron.log 2>&1' | crontab - && crond -f"
 
   node:
     build:

@@ -18,14 +18,17 @@ const loading = ref(false)
 // Leaderboard
 const leaderboard = ref([])
 const leaderboardLoading = ref(false)
+const awards = ref({})
+const awardDefinitions = ref({})
 
 // Period tabs
 const periods = [
+  { id: 'today', label: 'Dnes' },
   { id: 'week', label: 'Týden' },
   { id: 'month', label: 'Měsíc' },
   { id: 'year', label: 'Rok' },
 ]
-const activePeriod = ref('week')
+const activePeriod = ref('today')
 
 // Computed max value for chart scaling
 const maxBeers = computed(() => {
@@ -48,9 +51,12 @@ async function fetchLeaderboard() {
   try {
     const data = await api.getLeaderboard(groups.activeGroup.id, activePeriod.value)
     leaderboard.value = data.leaderboard || []
+    awards.value = data.awards || {}
+    awardDefinitions.value = data.awardDefinitions || {}
   } catch (err) {
     console.error('Failed to fetch leaderboard:', err)
     leaderboard.value = []
+    awards.value = {}
   }
   leaderboardLoading.value = false
 }
@@ -74,6 +80,27 @@ function getBarWidth(beers) {
 function isCurrentUser(userId) {
   return auth.user?.id === userId
 }
+
+function getUserAwards(userId) {
+  const userAwards = []
+  for (const [type, data] of Object.entries(awards.value)) {
+    if (data.userId === userId) {
+      const def = awardDefinitions.value[type]
+      if (def) {
+        userAwards.push({ type, icon: def.icon, label: def.label, value: data.value })
+      }
+    }
+  }
+  return userAwards
+}
+
+const activeAwards = computed(() => {
+  return Object.entries(awards.value).map(([type, data]) => ({
+    type,
+    ...data,
+    ...(awardDefinitions.value[type] || {}),
+  }))
+})
 
 async function createGroup() {
   if (!newGroupName.value.trim()) {
@@ -192,52 +219,79 @@ onMounted(async () => {
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-beer-500"></div>
       </div>
 
-      <!-- Bar chart with clickable names -->
-      <section v-else-if="leaderboard.length > 0" class="mb-6">
-        <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Žebříček</h2>
-        <div class="card">
-          <div class="space-y-4">
+      <template v-else>
+        <!-- Awards section -->
+        <section v-if="activeAwards.length > 0" class="mb-6">
+          <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Tituly dne</h2>
+          <div class="grid grid-cols-2 gap-2">
             <div
-              v-for="(entry, index) in leaderboard"
-              :key="entry.userId"
-              class="group"
+              v-for="award in activeAwards"
+              :key="award.type"
+              class="card !py-3 !px-3"
             >
-              <div class="flex items-center justify-between mb-1.5">
-                <div class="flex items-center gap-2">
-                  <span class="text-lg w-8 text-gray-400">{{ getMedal(index) }}</span>
-                  <router-link
-                    v-if="!isCurrentUser(entry.userId)"
-                    :to="{ name: 'user-stats', params: { userId: entry.userId } }"
-                    class="font-medium text-sm hover:text-beer-400 transition-colors"
-                  >
-                    {{ entry.userName }}
-                  </router-link>
-                  <span v-else class="font-medium text-sm text-beer-400">
-                    {{ entry.userName }} (vy)
-                  </span>
-                </div>
-                <span class="text-beer-500 font-bold">{{ entry.totalBeers }}</span>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-lg">{{ award.icon }}</span>
+                <span class="text-xs text-gray-400 font-medium">{{ award.label }}</span>
               </div>
-              <div class="h-6 bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-gradient-to-r from-beer-600 to-beer-400 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
-                  :style="{ width: getBarWidth(entry.totalBeers) }"
-                >
-                  <span v-if="entry.totalBeers > 0 && totalGroupBeers > 0" class="text-xs font-medium text-white/80">
-                    {{ Math.round((entry.totalBeers / totalGroupBeers) * 100) }}%
-                  </span>
+              <p class="text-sm font-semibold truncate">{{ award.userName }}</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Bar chart with clickable names -->
+        <section v-if="leaderboard.length > 0" class="mb-6">
+          <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Žebříček</h2>
+          <div class="card">
+            <div class="space-y-4">
+              <div
+                v-for="(entry, index) in leaderboard"
+                :key="entry.userId"
+                class="group"
+              >
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-lg w-8 text-gray-400 shrink-0">{{ getMedal(index) }}</span>
+                    <router-link
+                      v-if="!isCurrentUser(entry.userId)"
+                      :to="{ name: 'user-stats', params: { userId: entry.userId } }"
+                      class="font-medium text-sm hover:text-beer-400 transition-colors truncate"
+                    >
+                      {{ entry.userName }}
+                    </router-link>
+                    <span v-else class="font-medium text-sm text-beer-400 truncate">
+                      {{ entry.userName }} (vy)
+                    </span>
+                    <span
+                      v-for="award in getUserAwards(entry.userId)"
+                      :key="award.type"
+                      :title="award.label"
+                      class="text-sm shrink-0"
+                    >{{ award.icon }}</span>
+                  </div>
+                  <span class="text-beer-500 font-bold shrink-0 ml-2">{{ entry.totalBeers }}</span>
+                </div>
+                <div class="h-6 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-gradient-to-r from-beer-600 to-beer-400 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                    :style="{ width: getBarWidth(entry.totalBeers) }"
+                  >
+                    <span v-if="entry.totalBeers > 0 && totalGroupBeers > 0" class="text-xs font-medium text-white/80">
+                      {{ Math.round((entry.totalBeers / totalGroupBeers) * 100) }}%
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Empty leaderboard -->
-      <div v-else class="card text-center py-8 mb-6">
-        <p class="text-4xl mb-4">:(</p>
-        <p class="text-gray-400">Zatím žádná data pro toto období</p>
-      </div>
+        <!-- Empty leaderboard -->
+        <div v-else class="card text-center py-8 mb-6">
+          <p class="text-4xl mb-4">:(</p>
+          <p class="text-gray-400">Zatím žádná data pro toto období</p>
+        </div>
+
+      </template>
     </template>
 
     <!-- Group management section -->
