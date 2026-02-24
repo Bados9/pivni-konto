@@ -165,6 +165,7 @@ class BeerFixtures extends Fixture
             ['name' => 'Pernštejn Hořká 12 ze sklepa', 'brewery' => 'Pivovar Pardubice', 'style' => 'Lager', 'abv' => 5.0],
 
             // === ZAHRANIČNÍ ===
+            // Španělsko
             ['name' => 'Estrella Galicia Especial', 'brewery' => 'Hijos de Rivera', 'style' => 'Pale Lager', 'abv' => 5.5],
         ];
 
