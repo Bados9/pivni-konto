@@ -18,8 +18,6 @@ const loading = ref(false)
 // Leaderboard
 const leaderboard = ref([])
 const leaderboardLoading = ref(false)
-const awards = ref({})
-const awardDefinitions = ref({})
 
 // Period tabs
 const periods = [
@@ -51,12 +49,9 @@ async function fetchLeaderboard() {
   try {
     const data = await api.getLeaderboard(groups.activeGroup.id, activePeriod.value)
     leaderboard.value = data.leaderboard || []
-    awards.value = data.awards || {}
-    awardDefinitions.value = data.awardDefinitions || {}
   } catch (err) {
     console.error('Failed to fetch leaderboard:', err)
     leaderboard.value = []
-    awards.value = {}
   }
   leaderboardLoading.value = false
 }
@@ -80,27 +75,6 @@ function getBarWidth(beers) {
 function isCurrentUser(userId) {
   return auth.user?.id === userId
 }
-
-function getUserAwards(userId) {
-  const userAwards = []
-  for (const [type, data] of Object.entries(awards.value)) {
-    if (data.userId === userId) {
-      const def = awardDefinitions.value[type]
-      if (def) {
-        userAwards.push({ type, icon: def.icon, label: def.label, value: data.value })
-      }
-    }
-  }
-  return userAwards
-}
-
-const activeAwards = computed(() => {
-  return Object.entries(awards.value).map(([type, data]) => ({
-    type,
-    ...data,
-    ...(awardDefinitions.value[type] || {}),
-  }))
-})
 
 async function createGroup() {
   if (!newGroupName.value.trim()) {
@@ -220,24 +194,6 @@ onMounted(async () => {
       </div>
 
       <template v-else>
-        <!-- Awards section -->
-        <section v-if="activeAwards.length > 0" class="mb-6">
-          <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Tituly dne</h2>
-          <div class="grid grid-cols-2 gap-2">
-            <div
-              v-for="award in activeAwards"
-              :key="award.type"
-              class="card !py-3 !px-3"
-            >
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-lg">{{ award.icon }}</span>
-                <span class="text-xs text-gray-400 font-medium">{{ award.label }}</span>
-              </div>
-              <p class="text-sm font-semibold truncate">{{ award.userName }}</p>
-            </div>
-          </div>
-        </section>
-
         <!-- Bar chart with clickable names -->
         <section v-if="leaderboard.length > 0" class="mb-6">
           <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Žebříček</h2>
@@ -261,12 +217,6 @@ onMounted(async () => {
                     <span v-else class="font-medium text-sm text-beer-400 truncate">
                       {{ entry.userName }} (vy)
                     </span>
-                    <span
-                      v-for="award in getUserAwards(entry.userId)"
-                      :key="award.type"
-                      :title="award.label"
-                      class="text-sm shrink-0"
-                    >{{ award.icon }}</span>
                   </div>
                   <span class="text-beer-500 font-bold shrink-0 ml-2">{{ entry.totalBeers }}</span>
                 </div>
