@@ -10,14 +10,20 @@
 
 **IMPORTANT:** All code changes must go through Pull Requests.
 
-1. Create a feature branch from `master`
+### Feature development
+1. Create a feature branch from `dev`
 2. Make your changes
-3. Open a Pull Request
+3. Open a Pull Request targeting `dev`
 4. Wait for CI tests to pass
 5. Get code review if needed
-6. Merge to master (triggers automatic deployment)
+6. Merge to `dev`
 
-**Never push directly to master/main branch.**
+### Deploying to production
+1. Open a Pull Request from `dev` to `master`
+2. Wait for CI tests to pass
+3. Merge to `master` (triggers automatic deployment)
+
+**Never push directly to master or dev branch.**
 
 ## Running Tests
 
@@ -87,12 +93,12 @@ make db-reset
 
 ## CI/CD
 
-- **test.yml** - Runs on every PR to master
+- **test.yml** - Runs on every PR to `dev` or `master`
   - Backend PHPUnit tests
   - Frontend Vitest tests
   - Syntax and build checks
 
-- **deploy.yml** - Runs on merge to master
+- **deploy.yml** - Runs on merge to `master` only
   - Runs all tests
   - Deploys to production VPS
 

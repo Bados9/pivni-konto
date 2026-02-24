@@ -152,6 +152,20 @@ class AchievementService
             'icon' => '💕',
             'category' => 'special',
         ],
+
+        // Skupinové
+        'regular_drinker' => [
+            'name' => 'Pravidelný pijan',
+            'description' => 'Staň se pijakem dne 10×',
+            'icon' => '🎖️',
+            'category' => 'group',
+        ],
+        'unbeatable' => [
+            'name' => 'Neporazitelný',
+            'description' => 'Buď pijakem dne 3 dny po sobě',
+            'icon' => '💎',
+            'category' => 'group',
+        ],
     ];
 
     public function __construct(
@@ -171,12 +185,13 @@ class AchievementService
     public function checkAndUnlockAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
+        $unlockedCounts = $this->achievementRepository->getUnlockedWithCounts($user);
         $newlyUnlocked = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
             $isRepeatable = $definition['repeatable'] ?? false;
-            $alreadyHas = isset($unlockedData[$id]);
+            $currentCount = $unlockedCounts[$id] ?? 0;
+            $alreadyHas = $currentCount > 0;
 
             // Non-repeatable achievements - skip if already unlocked
             if ($alreadyHas && !$isRepeatable) {
@@ -186,23 +201,17 @@ class AchievementService
             // For repeatable achievements, check if user earned more unlocks
             if ($isRepeatable) {
                 $targetCount = $this->getRepeatableCount($id, $stats);
-                $currentCount = $alreadyHas ? $unlockedData[$id]['timesUnlocked'] : 0;
 
                 if ($targetCount <= $currentCount) {
                     continue;
                 }
 
-                // User earned more unlocks
-                if ($alreadyHas) {
-                    $achievement = $unlockedData[$id]['entity'];
-                    $achievement->setTimesUnlocked($targetCount);
-                    $achievement->setUnlockedAt(new \DateTimeImmutable());
-                }
-                if (!$alreadyHas) {
+                // Create new rows for the difference
+                $newCount = $targetCount - $currentCount;
+                for ($i = 0; $i < $newCount; $i++) {
                     $achievement = new UserAchievement();
                     $achievement->setUser($user);
                     $achievement->setAchievementId($id);
-                    $achievement->setTimesUnlocked($targetCount);
                     $this->entityManager->persist($achievement);
                 }
 
@@ -264,13 +273,13 @@ class AchievementService
     public function getUserAchievements(User $user): array
     {
         $stats = $this->calculateUserStats($user);
-        $unlockedData = $this->achievementRepository->getUnlockedWithCounts($user);
+        $unlockedCounts = $this->achievementRepository->getUnlockedWithCounts($user);
         $achievements = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
             $isRepeatable = $definition['repeatable'] ?? false;
-            $unlocked = isset($unlockedData[$id]);
-            $timesUnlocked = $unlocked ? $unlockedData[$id]['timesUnlocked'] : 0;
+            $timesUnlocked = $unlockedCounts[$id] ?? 0;
+            $unlocked = $timesUnlocked > 0;
             $progress = $this->getAchievementProgress($id, $stats);
 
             $achievements[] = [
@@ -333,6 +342,10 @@ class AchievementService
             }
         }
 
+        // Group award stats (from UserAchievement rows with drinker_of_day achievementId)
+        $drinkerOfDayCount = $this->achievementRepository->countByUserAndAchievement($user, 'drinker_of_day');
+        $drinkerOfDayConsecutive = $this->achievementRepository->getMaxConsecutiveDays($user, 'drinker_of_day');
+
         return [
             'total_beers' => $dbStats['total_beers'],
             'total_volume_ml' => $dbStats['total_volume_ml'],
@@ -350,6 +363,8 @@ class AchievementService
             'days_with_10_beers' => $dbStats['days_with_10_beers'],
             'group_count' => count($memberships),
             'is_founder' => $isFounder,
+            'drinker_of_day_count' => $drinkerOfDayCount,
+            'drinker_of_day_consecutive' => $drinkerOfDayConsecutive,
         ];
     }
 
@@ -382,6 +397,9 @@ class AchievementService
             'size_matters' => $stats['large_beers'] >= 10,
             'small_but_mighty' => $stats['small_beers'] >= 10,
             'loyal_fan' => $stats['max_loyal'] >= 10,
+
+            'regular_drinker' => $stats['drinker_of_day_count'] >= 10,
+            'unbeatable' => $stats['drinker_of_day_consecutive'] >= 3,
 
             default => false,
         };
@@ -416,6 +434,9 @@ class AchievementService
             'size_matters' => ['current' => min($stats['large_beers'], 10), 'target' => 10],
             'small_but_mighty' => ['current' => min($stats['small_beers'], 10), 'target' => 10],
             'loyal_fan' => ['current' => min($stats['max_loyal'], 10), 'target' => 10],
+
+            'regular_drinker' => ['current' => min($stats['drinker_of_day_count'], 10), 'target' => 10],
+            'unbeatable' => ['current' => min($stats['drinker_of_day_consecutive'], 3), 'target' => 3],
 
             default => ['current' => 0, 'target' => 1],
         };
