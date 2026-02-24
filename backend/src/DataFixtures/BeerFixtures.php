@@ -18,6 +18,7 @@ class BeerFixtures extends Fixture
             ['name' => 'Gambrinus Originál 10°', 'brewery' => 'Gambrinus', 'style' => 'Lager', 'abv' => 4.3],
             ['name' => 'Gambrinus Plná 12°', 'brewery' => 'Gambrinus', 'style' => 'Lager', 'abv' => 5.2],
             ['name' => 'Gambrinus Nepasterizovaná', 'brewery' => 'Gambrinus', 'style' => 'Lager', 'abv' => 4.8],
+            ['name' => 'Gambrinus Excelent 11°', 'brewery' => 'Gambrinus', 'style' => 'Lager', 'abv' => 4.7],
             ['name' => 'Radegast Rázná 12°', 'brewery' => 'Radegast', 'style' => 'Lager', 'abv' => 5.1],
             ['name' => 'Radegast Originál 10°', 'brewery' => 'Radegast', 'style' => 'Lager', 'abv' => 4.0],
             ['name' => 'Kozel 10°', 'brewery' => 'Kozel', 'style' => 'Lager', 'abv' => 4.0],
@@ -162,6 +163,9 @@ class BeerFixtures extends Fixture
 
             // Pivovar Pardubice
             ['name' => 'Pernštejn Hořká 12 ze sklepa', 'brewery' => 'Pivovar Pardubice', 'style' => 'Lager', 'abv' => 5.0],
+
+            // === ZAHRANIČNÍ ===
+            ['name' => 'Estrella Galicia Especial', 'brewery' => 'Hijos de Rivera', 'style' => 'Pale Lager', 'abv' => 5.5],
         ];
 
         // Check for existing beers to avoid duplicates on re-run
