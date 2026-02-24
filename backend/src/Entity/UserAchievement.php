@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: UserAchievementRepository::class)]
-#[ORM\UniqueConstraint(name: 'unique_user_achievement', columns: ['user_id', 'achievement_id'])]
+#[ORM\Index(columns: ['user_id', 'achievement_id'], name: 'idx_ua_user_achievement')]
 class UserAchievement
 {
     #[ORM\Id]
@@ -23,9 +23,6 @@ class UserAchievement
 
     #[ORM\Column]
     private \DateTimeImmutable $unlockedAt;
-
-    #[ORM\Column(type: 'integer', options: ['default' => 1])]
-    private int $timesUnlocked = 1;
 
     public function __construct()
     {
@@ -68,24 +65,6 @@ class UserAchievement
     public function setUnlockedAt(\DateTimeImmutable $unlockedAt): static
     {
         $this->unlockedAt = $unlockedAt;
-        return $this;
-    }
-
-    public function getTimesUnlocked(): int
-    {
-        return $this->timesUnlocked;
-    }
-
-    public function setTimesUnlocked(int $timesUnlocked): static
-    {
-        $this->timesUnlocked = $timesUnlocked;
-        return $this;
-    }
-
-    public function incrementTimesUnlocked(): static
-    {
-        $this->timesUnlocked++;
-        $this->unlockedAt = new \DateTimeImmutable();
         return $this;
     }
 }
