@@ -321,7 +321,7 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(23, $result['total']);
+        $this->assertEquals(24, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 

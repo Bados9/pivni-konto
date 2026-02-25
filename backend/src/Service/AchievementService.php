@@ -166,6 +166,12 @@ class AchievementService
             'icon' => '💎',
             'category' => 'group',
         ],
+        'monthly_champion' => [
+            'name' => 'Měsíční šampion',
+            'description' => 'Staň se pijakem měsíce 3×',
+            'icon' => '🌟',
+            'category' => 'group',
+        ],
     ];
 
     public function __construct(
@@ -345,6 +351,7 @@ class AchievementService
         // Group award stats (from UserAchievement rows with drinker_of_day achievementId)
         $drinkerOfDayCount = $this->achievementRepository->countByUserAndAchievement($user, 'drinker_of_day');
         $drinkerOfDayConsecutive = $this->achievementRepository->getMaxConsecutiveDays($user, 'drinker_of_day');
+        $drinkerOfMonthCount = $this->achievementRepository->countByUserAndAchievement($user, 'drinker_of_month');
 
         return [
             'total_beers' => $dbStats['total_beers'],
@@ -365,6 +372,7 @@ class AchievementService
             'is_founder' => $isFounder,
             'drinker_of_day_count' => $drinkerOfDayCount,
             'drinker_of_day_consecutive' => $drinkerOfDayConsecutive,
+            'drinker_of_month_count' => $drinkerOfMonthCount,
         ];
     }
 
@@ -400,6 +408,7 @@ class AchievementService
 
             'regular_drinker' => $stats['drinker_of_day_count'] >= 10,
             'unbeatable' => $stats['drinker_of_day_consecutive'] >= 3,
+            'monthly_champion' => $stats['drinker_of_month_count'] >= 3,
 
             default => false,
         };
@@ -437,6 +446,7 @@ class AchievementService
 
             'regular_drinker' => ['current' => min($stats['drinker_of_day_count'], 10), 'target' => 10],
             'unbeatable' => ['current' => min($stats['drinker_of_day_consecutive'], 3), 'target' => 3],
+            'monthly_champion' => ['current' => min($stats['drinker_of_month_count'], 3), 'target' => 3],
 
             default => ['current' => 0, 'target' => 1],
         };
