@@ -8,7 +8,6 @@ use App\Repository\BeerEntryRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Service\DrinkingDayService;
-use App\Service\GroupAchievementService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -184,11 +183,6 @@ class StatsController extends AbstractController
 
         $leaderboard = $this->entryRepository->getLeaderboardWithAllMembers($group, $periodStart, $dayEnd);
 
-        // Live awards (always computed for current day/week regardless of selected period)
-        $dayStart = $this->drinkingDayService->getDrinkingDayStart();
-        $weekStart = new \DateTimeImmutable('monday this week 05:00');
-        $awards = $this->entryRepository->getGroupAwards($group, $dayStart, $dayEnd, $weekStart);
-
         return $this->json([
             'group' => [
                 'id' => $group->getId()->toRfc4122(),
@@ -196,8 +190,6 @@ class StatsController extends AbstractController
             ],
             'period' => $period,
             'leaderboard' => $leaderboard,
-            'awards' => $awards,
-            'awardDefinitions' => GroupAchievementService::getAwardDefinitions(),
         ]);
     }
 }
