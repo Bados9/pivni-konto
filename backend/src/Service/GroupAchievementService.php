@@ -11,13 +11,10 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class GroupAchievementService
 {
-    private const AWARD_DEFINITIONS = [
+    private const ACHIEVEMENT_DEFINITIONS = [
         'drinker_of_day' => ['icon' => "\u{1F37A}", 'label' => 'Pijan dne'],
         'drinker_of_week' => ['icon' => "\u{1F3C6}", 'label' => 'Pijan týdne'],
-        'leader' => ['icon' => "\u{1F451}", 'label' => 'Lídr'],
-        'night_rider' => ['icon' => "\u{1F319}", 'label' => 'Noční jezdec'],
-        'endurance' => ['icon' => "\u{1F525}", 'label' => 'Vytrvalec'],
-        'tankista' => ['icon' => "\u{1F6E2}\u{FE0F}", 'label' => 'Tankista'],
+        'drinker_of_month' => ['icon' => "\u{1F31F}", 'label' => 'Pijan měsíce'],
     ];
 
     public function __construct(
@@ -30,15 +27,18 @@ class GroupAchievementService
     }
 
     /**
-     * Evaluate and persist awards for a specific date (typically yesterday)
+     * Evaluate and persist group achievements for a specific date.
+     * Daily (drinker_of_day) runs every day.
+     * Weekly (drinker_of_week) runs when forDate is Sunday (end of drinking week).
+     * Monthly (drinker_of_month) runs when forDate is the last day of the month.
      */
-    public function evaluateDailyAwards(\DateTimeImmutable $forDate): int
+    public function evaluateGroupAchievements(\DateTimeImmutable $forDate): int
     {
         $groups = $this->groupRepository->findAll();
         $totalSaved = 0;
 
         foreach ($groups as $group) {
-            $totalSaved += $this->evaluateGroupAwards($group, $forDate);
+            $totalSaved += $this->evaluateGroup($group, $forDate);
         }
 
         $this->em->flush();
@@ -46,22 +46,39 @@ class GroupAchievementService
         return $totalSaved;
     }
 
-    /**
-     * Evaluate awards for a single group on a specific date
-     */
-    public function evaluateGroupAwards(Group $group, \DateTimeImmutable $forDate): int
+    private function evaluateGroup(Group $group, \DateTimeImmutable $forDate): int
     {
         $dayStart = $this->drinkingDayService->getDrinkingDayStart($forDate->setTime(12, 0));
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd($forDate->setTime(12, 0));
-        $weekStart = new \DateTimeImmutable($forDate->format('o-\\WW') . ' monday 05:00');
 
-        $awards = $this->entryRepository->getGroupAwards($group, $dayStart, $dayEnd, $weekStart);
+        $weekStart = null;
+        $weekEnd = null;
+        $monthStart = null;
+        $monthEnd = null;
+
+        // Weekly: evaluate when forDate is Sunday (completed drinking week Mon-Sun)
+        if ((int) $forDate->format('N') === 7) {
+            $monday = $forDate->modify('last monday');
+            $weekStart = new \DateTimeImmutable($monday->format('Y-m-d') . ' 05:00');
+            $weekEnd = $weekStart->modify('+7 days');
+        }
+
+        // Monthly: evaluate on last day of month
+        if ($forDate->format('j') === $forDate->format('t')) {
+            $monthStart = new \DateTimeImmutable($forDate->format('Y-m-01') . ' 05:00');
+            $nextMonth = $forDate->modify('first day of next month');
+            $monthEnd = new \DateTimeImmutable($nextMonth->format('Y-m-d') . ' 05:00');
+        }
+
+        $awards = $this->entryRepository->getGroupAwards(
+            $group, $dayStart, $dayEnd, $weekStart, $weekEnd, $monthStart, $monthEnd
+        );
+
         $saved = 0;
 
         foreach ($awards as $type => $awardData) {
             $user = $this->em->getReference('App\Entity\User', $awardData['userId']);
 
-            // Dedup: check if user already has this achievement for this date
             if ($this->achievementRepository->hasAchievementOnDate($user, $type, $forDate)) {
                 continue;
             }
@@ -78,11 +95,8 @@ class GroupAchievementService
         return $saved;
     }
 
-    /**
-     * Get award definitions with icons/labels (for frontend)
-     */
-    public static function getAwardDefinitions(): array
+    public static function getAchievementDefinitions(): array
     {
-        return self::AWARD_DEFINITIONS;
+        return self::ACHIEVEMENT_DEFINITIONS;
     }
 }

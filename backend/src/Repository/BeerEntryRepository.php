@@ -275,180 +275,111 @@ class BeerEntryRepository extends ServiceEntityRepository
     }
 
     /**
-     * Get live group awards for the current drinking day/week.
+     * Get group awards for specified periods.
      * Returns award type => [userId, userName, value] for each award.
+     *
+     * drinker_of_day requires at least 5 active drinkers in the group.
+     * drinker_of_week and drinker_of_month are only evaluated when their boundaries are provided.
      */
-    public function getGroupAwards(Group $group, \DateTimeImmutable $dayStart, \DateTimeImmutable $dayEnd, \DateTimeImmutable $weekStart): array
-    {
+    public function getGroupAwards(
+        Group $group,
+        \DateTimeImmutable $dayStart,
+        \DateTimeImmutable $dayEnd,
+        ?\DateTimeImmutable $weekStart = null,
+        ?\DateTimeImmutable $weekEnd = null,
+        ?\DateTimeImmutable $monthStart = null,
+        ?\DateTimeImmutable $monthEnd = null,
+    ): array {
         $em = $this->getEntityManager();
+        $awards = [];
 
-        // Drinker of the day: most beers today
-        $drinkerOfDay = $em->createQueryBuilder()
-            ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+        // Drinker of the day: most beers today (min 5 active drinkers required)
+        $activeDrinkers = (int) $em->createQueryBuilder()
+            ->select('COUNT(DISTINCT IDENTITY(gm.user))')
             ->from('App\Entity\GroupMember', 'gm')
-            ->innerJoin('gm.user', 'u')
-            ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
+            ->innerJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = gm.user AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
             ->where('gm.group = :group')
             ->setParameter('group', $group)
             ->setParameter('dayStart', $dayStart)
             ->setParameter('dayEnd', $dayEnd)
-            ->groupBy('gm.user, u.name')
-            ->orderBy('totalBeers', 'DESC')
-            ->setMaxResults(1)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getSingleScalarResult();
 
-        // Drinker of the week: most beers this week
-        $drinkerOfWeek = $em->createQueryBuilder()
-            ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
-            ->from('App\Entity\GroupMember', 'gm')
-            ->innerJoin('gm.user', 'u')
-            ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :weekStart AND e.consumedAt < :dayEnd')
-            ->where('gm.group = :group')
-            ->setParameter('group', $group)
-            ->setParameter('weekStart', $weekStart)
-            ->setParameter('dayEnd', $dayEnd)
-            ->groupBy('gm.user, u.name')
-            ->orderBy('totalBeers', 'DESC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        if ($activeDrinkers >= 5) {
+            $drinkerOfDay = $em->createQueryBuilder()
+                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->from('App\Entity\GroupMember', 'gm')
+                ->innerJoin('gm.user', 'u')
+                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
+                ->where('gm.group = :group')
+                ->setParameter('group', $group)
+                ->setParameter('dayStart', $dayStart)
+                ->setParameter('dayEnd', $dayEnd)
+                ->groupBy('gm.user, u.name')
+                ->orderBy('totalBeers', 'DESC')
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
 
-        // Leader: who started drinking first today
-        $leader = $em->createQueryBuilder()
-            ->select('IDENTITY(e.user) as userId, u.name as userName, MIN(e.consumedAt) as firstDrink')
-            ->from('App\Entity\BeerEntry', 'e')
-            ->innerJoin('e.user', 'u')
-            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user AND gm.group = :group')
-            ->where('e.consumedAt >= :dayStart')
-            ->andWhere('e.consumedAt < :dayEnd')
-            ->setParameter('group', $group)
-            ->setParameter('dayStart', $dayStart)
-            ->setParameter('dayEnd', $dayEnd)
-            ->groupBy('e.user, u.name')
-            ->orderBy('firstDrink', 'ASC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
-
-        // Night rider: latest drink after midnight (00:00-04:59)
-        $nightRider = $em->createQueryBuilder()
-            ->select('IDENTITY(e.user) as userId, u.name as userName, MAX(e.consumedAt) as latestDrink')
-            ->from('App\Entity\BeerEntry', 'e')
-            ->innerJoin('e.user', 'u')
-            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user AND gm.group = :group')
-            ->where('e.consumedAt >= :dayStart')
-            ->andWhere('e.consumedAt < :dayEnd')
-            ->setParameter('group', $group)
-            ->setParameter('dayStart', $dayStart)
-            ->setParameter('dayEnd', $dayEnd)
-            ->groupBy('e.user, u.name')
-            ->getQuery()
-            ->getResult();
-
-        // Filter night rider: only entries between 00:00-04:59
-        $nightRiderResult = null;
-        $latestTime = null;
-        foreach ($nightRider as $row) {
-            $drinkTime = new \DateTimeImmutable($row['latestDrink']);
-            $hour = (int) $drinkTime->format('H');
-            if ($hour >= 0 && $hour < 5) {
-                if ($latestTime === null || $drinkTime > $latestTime) {
-                    $latestTime = $drinkTime;
-                    $row['latestDrink'] = $drinkTime;
-                    $nightRiderResult = $row;
-                }
-            }
-        }
-
-        // Tankista: highest volume today
-        $tankista = $em->createQueryBuilder()
-            ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.volumeMl * e.quantity), 0) as totalVolume')
-            ->from('App\Entity\GroupMember', 'gm')
-            ->innerJoin('gm.user', 'u')
-            ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
-            ->where('gm.group = :group')
-            ->setParameter('group', $group)
-            ->setParameter('dayStart', $dayStart)
-            ->setParameter('dayEnd', $dayEnd)
-            ->groupBy('gm.user, u.name')
-            ->orderBy('totalVolume', 'DESC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
-
-        // Endurance: longest current drinking streak among members
-        $members = $em->createQueryBuilder()
-            ->select('u')
-            ->from('App\Entity\User', 'u')
-            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = u AND gm.group = :group')
-            ->setParameter('group', $group)
-            ->getQuery()
-            ->getResult();
-
-        $enduranceResult = null;
-        $maxStreak = 0;
-        foreach ($members as $member) {
-            $streak = $this->getCurrentStreakByUser($member);
-            if ($streak > $maxStreak) {
-                $maxStreak = $streak;
-                $enduranceResult = [
-                    'userId' => $member->getId(),
-                    'userName' => $member->getName(),
-                    'streak' => $streak,
+            if ($drinkerOfDay !== null && (int) $drinkerOfDay['totalBeers'] > 0) {
+                $awards['drinker_of_day'] = [
+                    'userId' => $drinkerOfDay['userId'],
+                    'userName' => $drinkerOfDay['userName'],
+                    'value' => (int) $drinkerOfDay['totalBeers'],
                 ];
             }
         }
 
-        $awards = [];
+        // Drinker of the week
+        if ($weekStart !== null && $weekEnd !== null) {
+            $drinkerOfWeek = $em->createQueryBuilder()
+                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->from('App\Entity\GroupMember', 'gm')
+                ->innerJoin('gm.user', 'u')
+                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :weekStart AND e.consumedAt < :weekEnd')
+                ->where('gm.group = :group')
+                ->setParameter('group', $group)
+                ->setParameter('weekStart', $weekStart)
+                ->setParameter('weekEnd', $weekEnd)
+                ->groupBy('gm.user, u.name')
+                ->orderBy('totalBeers', 'DESC')
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
 
-        if ($drinkerOfDay !== null && (int) $drinkerOfDay['totalBeers'] > 0) {
-            $awards['drinker_of_day'] = [
-                'userId' => $drinkerOfDay['userId'],
-                'userName' => $drinkerOfDay['userName'],
-                'value' => (int) $drinkerOfDay['totalBeers'],
-            ];
+            if ($drinkerOfWeek !== null && (int) $drinkerOfWeek['totalBeers'] > 0) {
+                $awards['drinker_of_week'] = [
+                    'userId' => $drinkerOfWeek['userId'],
+                    'userName' => $drinkerOfWeek['userName'],
+                    'value' => (int) $drinkerOfWeek['totalBeers'],
+                ];
+            }
         }
 
-        if ($drinkerOfWeek !== null && (int) $drinkerOfWeek['totalBeers'] > 0) {
-            $awards['drinker_of_week'] = [
-                'userId' => $drinkerOfWeek['userId'],
-                'userName' => $drinkerOfWeek['userName'],
-                'value' => (int) $drinkerOfWeek['totalBeers'],
-            ];
-        }
+        // Drinker of the month
+        if ($monthStart !== null && $monthEnd !== null) {
+            $drinkerOfMonth = $em->createQueryBuilder()
+                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->from('App\Entity\GroupMember', 'gm')
+                ->innerJoin('gm.user', 'u')
+                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :monthStart AND e.consumedAt < :monthEnd')
+                ->where('gm.group = :group')
+                ->setParameter('group', $group)
+                ->setParameter('monthStart', $monthStart)
+                ->setParameter('monthEnd', $monthEnd)
+                ->groupBy('gm.user, u.name')
+                ->orderBy('totalBeers', 'DESC')
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
 
-        if ($leader !== null) {
-            $firstDrink = new \DateTimeImmutable($leader['firstDrink']);
-            $awards['leader'] = [
-                'userId' => $leader['userId'],
-                'userName' => $leader['userName'],
-                'value' => $firstDrink->format('H:i'),
-            ];
-        }
-
-        if ($nightRiderResult !== null) {
-            $awards['night_rider'] = [
-                'userId' => $nightRiderResult['userId'],
-                'userName' => $nightRiderResult['userName'],
-                'value' => $nightRiderResult['latestDrink']->format('H:i'),
-            ];
-        }
-
-        if ($enduranceResult !== null && $enduranceResult['streak'] > 0) {
-            $awards['endurance'] = [
-                'userId' => $enduranceResult['userId']->toRfc4122(),
-                'userName' => $enduranceResult['userName'],
-                'value' => $enduranceResult['streak'],
-            ];
-        }
-
-        if ($tankista !== null && (int) $tankista['totalVolume'] > 0) {
-            $awards['tankista'] = [
-                'userId' => $tankista['userId'],
-                'userName' => $tankista['userName'],
-                'value' => (int) $tankista['totalVolume'],
-            ];
+            if ($drinkerOfMonth !== null && (int) $drinkerOfMonth['totalBeers'] > 0) {
+                $awards['drinker_of_month'] = [
+                    'userId' => $drinkerOfMonth['userId'],
+                    'userName' => $drinkerOfMonth['userName'],
+                    'value' => (int) $drinkerOfMonth['totalBeers'],
+                ];
+            }
         }
 
         return $awards;

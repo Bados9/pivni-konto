@@ -79,7 +79,7 @@ services:
       CORS_ALLOW_ORIGIN: "^https?://(localhost|127\\.0\\.0\\.1)(:[0-9]+)?$$"
     networks:
       - pivni-konto
-    entrypoint: /bin/sh -c "echo '1 5 * * * cd /var/www/html && php bin/console app:evaluate-daily-group-awards >> /var/log/cron.log 2>&1' | crontab - && crond -f"
+    entrypoint: /bin/sh -c "echo '1 5 * * * cd /var/www/html && php bin/console app:evaluate-group-achievements >> /var/log/cron.log 2>&1' | crontab - && crond -f"
 
   node:
     build:

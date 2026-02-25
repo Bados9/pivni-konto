@@ -2,7 +2,6 @@
 
 namespace App\Command;
 
-use App\Service\DrinkingDayService;
 use App\Service\GroupAchievementService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -12,14 +11,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
-    name: 'app:evaluate-daily-group-awards',
-    description: 'Evaluate and persist group awards for yesterday\'s drinking day',
+    name: 'app:evaluate-group-achievements',
+    description: 'Evaluate and persist group achievements (daily, weekly on Sundays, monthly on last day of month)',
 )]
 class EvaluateDailyGroupAwardsCommand extends Command
 {
     public function __construct(
         private GroupAchievementService $groupAchievementService,
-        private DrinkingDayService $drinkingDayService,
     ) {
         parent::__construct();
     }
@@ -34,20 +32,27 @@ class EvaluateDailyGroupAwardsCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $dateStr = $input->getOption('date');
-        if ($dateStr !== null) {
-            $forDate = new \DateTimeImmutable($dateStr);
+        $forDate = $dateStr !== null
+            ? new \DateTimeImmutable($dateStr)
+            : new \DateTimeImmutable('yesterday');
+
+        $types = ['drinker_of_day'];
+        if ((int) $forDate->format('N') === 7) {
+            $types[] = 'drinker_of_week';
+        }
+        if ($forDate->format('j') === $forDate->format('t')) {
+            $types[] = 'drinker_of_month';
         }
 
-        if ($dateStr === null) {
-            // Yesterday's drinking day
-            $forDate = new \DateTimeImmutable('yesterday');
-        }
+        $io->info(sprintf(
+            'Evaluating group achievements for %s (types: %s)',
+            $forDate->format('Y-m-d'),
+            implode(', ', $types)
+        ));
 
-        $io->info(sprintf('Evaluating group awards for date: %s', $forDate->format('Y-m-d')));
+        $totalSaved = $this->groupAchievementService->evaluateGroupAchievements($forDate);
 
-        $totalSaved = $this->groupAchievementService->evaluateDailyAwards($forDate);
-
-        $io->success(sprintf('Saved %d group awards for %s', $totalSaved, $forDate->format('Y-m-d')));
+        $io->success(sprintf('Saved %d group achievements for %s', $totalSaved, $forDate->format('Y-m-d')));
 
         return Command::SUCCESS;
     }
