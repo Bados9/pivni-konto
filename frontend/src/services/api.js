@@ -149,6 +149,14 @@ class ApiService {
     return this.patch('/auth/profile', data)
   }
 
+  forgotPassword(email) {
+    return this.post('/auth/forgot-password', { email })
+  }
+
+  resetPassword(token, password) {
+    return this.post('/auth/reset-password', { token, password })
+  }
+
   // Groups
   getMyGroups() {
     return this.get('/groups/my')
