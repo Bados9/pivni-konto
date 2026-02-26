@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useGroupsStore } from '../stores/groups'
 import { api } from '../services/api'
+import BeerSelect from '../components/BeerSelect.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -12,6 +13,10 @@ const groups = useGroupsStore()
 const achievements = ref({ summary: null, grouped: {} })
 const showAllAchievements = ref(false)
 const selectedCategory = ref('all')
+
+const beers = ref([])
+const defaultBeerId = ref(auth.user?.defaultBeerId || null)
+const defaultBeerLoading = ref(false)
 
 const editingName = ref(false)
 const editName = ref('')
@@ -86,6 +91,27 @@ function formatDate(dateString) {
   })
 }
 
+async function fetchBeers() {
+  try {
+    const response = await api.getBeers()
+    beers.value = response['hydra:member'] || response.member || response
+  } catch (error) {
+    console.error('Failed to fetch beers:', error)
+  }
+}
+
+async function saveDefaultBeer(beerId) {
+  defaultBeerId.value = beerId
+  defaultBeerLoading.value = true
+  try {
+    await auth.updateProfile({ defaultBeerId: beerId })
+  } catch (error) {
+    console.error('Failed to save default beer:', error)
+  } finally {
+    defaultBeerLoading.value = false
+  }
+}
+
 async function fetchAchievements() {
   try {
     achievements.value = await api.getMyAchievements()
@@ -97,6 +123,7 @@ async function fetchAchievements() {
 onMounted(() => {
   groups.fetchGroups()
   fetchAchievements()
+  fetchBeers()
 })
 </script>
 
@@ -159,6 +186,23 @@ onMounted(() => {
         <span>Účet vytvořen</span>
         <span>{{ formatDate(auth.user.createdAt) }}</span>
       </div>
+    </div>
+
+    <!-- Default beer setting -->
+    <div class="card mb-6">
+      <h3 class="font-semibold flex items-center gap-2 mb-3">
+        <span>🍺</span>
+        <span>Výchozí pivo</span>
+      </h3>
+      <p class="text-sm text-gray-400 mb-3">
+        Pivo, které se předvyplní při prvním záznamu dne
+      </p>
+      <BeerSelect
+        :modelValue="defaultBeerId"
+        @update:modelValue="saveDefaultBeer"
+        :beers="beers"
+      />
+      <p v-if="defaultBeerLoading" class="text-xs text-gray-500 mt-2">Ukládám...</p>
     </div>
 
     <!-- Achievements summary -->
