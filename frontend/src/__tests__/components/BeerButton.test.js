@@ -1,10 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BeerButton from '@/components/BeerButton.vue'
 
 describe('BeerButton', () => {
-  let wrapper
-
   beforeEach(() => {
     vi.useFakeTimers()
   })
@@ -13,49 +11,66 @@ describe('BeerButton', () => {
     vi.useRealTimers()
   })
 
-  it('renders the beer emoji', () => {
-    wrapper = mount(BeerButton)
+  it('renders the beer glass SVG and + 1 text', () => {
+    const wrapper = mount(BeerButton)
 
-    expect(wrapper.text()).toContain('🍺')
+    expect(wrapper.find('svg').exists()).toBe(true)
     expect(wrapper.text()).toContain('+ 1')
   })
 
-  it('emits add event when clicked', async () => {
-    wrapper = mount(BeerButton)
+  it('emits add event after animation completes', async () => {
+    const wrapper = mount(BeerButton)
 
     await wrapper.find('button').trigger('click')
 
+    // Should not emit immediately
+    expect(wrapper.emitted('add')).toBeUndefined()
+
+    // Advance through drain animation
+    vi.advanceTimersByTime(1000)
+    await wrapper.vm.$nextTick()
+
+    // Still should not have emitted (refill in progress)
+    expect(wrapper.emitted('add')).toBeUndefined()
+
+    // Advance through refill animation
+    vi.advanceTimersByTime(300)
+    await wrapper.vm.$nextTick()
+
+    // Now it should have emitted
     expect(wrapper.emitted('add')).toHaveLength(1)
   })
 
   it('does not emit when disabled', async () => {
-    wrapper = mount(BeerButton, {
+    const wrapper = mount(BeerButton, {
       props: { disabled: true }
     })
 
     await wrapper.find('button').trigger('click')
 
+    vi.advanceTimersByTime(1300)
+    await wrapper.vm.$nextTick()
+
     expect(wrapper.emitted('add')).toBeUndefined()
   })
 
-  it('shows pressed state and resets after timeout', async () => {
-    wrapper = mount(BeerButton)
+  it('prevents clicks during animation', async () => {
+    const wrapper = mount(BeerButton)
 
     await wrapper.find('button').trigger('click')
 
-    // Check that ripple effect appears
-    expect(wrapper.find('.animate-ping').exists()).toBe(true)
+    // Click again during drain
+    await wrapper.find('button').trigger('click')
 
-    // Fast forward time
-    vi.advanceTimersByTime(200)
+    vi.advanceTimersByTime(1300)
     await wrapper.vm.$nextTick()
 
-    // Ripple should be gone
-    expect(wrapper.find('.animate-ping').exists()).toBe(false)
+    // Should only emit once
+    expect(wrapper.emitted('add')).toHaveLength(1)
   })
 
   it('has correct disabled styling', () => {
-    wrapper = mount(BeerButton, {
+    const wrapper = mount(BeerButton, {
       props: { disabled: true }
     })
 
@@ -64,11 +79,41 @@ describe('BeerButton', () => {
     expect(button.classes()).toContain('disabled:opacity-50')
   })
 
-  it('applies pressed class when clicked', async () => {
-    wrapper = mount(BeerButton)
+  it('cycles through animation states on click', async () => {
+    const wrapper = mount(BeerButton)
+    const svg = wrapper.find('svg')
+
+    // Initial state
+    expect(svg.classes()).toContain('idle')
 
     await wrapper.find('button').trigger('click')
 
-    expect(wrapper.find('button').classes()).toContain('scale-95')
+    // Draining
+    expect(svg.classes()).toContain('draining')
+
+    vi.advanceTimersByTime(1000)
+    await wrapper.vm.$nextTick()
+
+    // Refilling
+    expect(svg.classes()).toContain('refilling')
+
+    vi.advanceTimersByTime(300)
+    await wrapper.vm.$nextTick()
+
+    // Back to idle
+    expect(svg.classes()).toContain('idle')
+  })
+
+  it('shows ripple during animation', async () => {
+    const wrapper = mount(BeerButton)
+
+    await wrapper.find('button').trigger('click')
+
+    expect(wrapper.find('.animate-ping').exists()).toBe(true)
+
+    vi.advanceTimersByTime(1300)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.animate-ping').exists()).toBe(false)
   })
 })
