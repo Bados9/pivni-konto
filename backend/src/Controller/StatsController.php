@@ -54,6 +54,7 @@ class StatsController extends AbstractController
         foreach ($todayEntries as $entry) {
             $recentEntries[] = [
                 'id' => $entry->getId()->toRfc4122(),
+                'beerId' => $entry->getBeer()?->getId()?->toRfc4122(),
                 'beerName' => $entry->getBeerDisplayName(),
                 'quantity' => $entry->getQuantity(),
                 'volumeMl' => $entry->getVolumeMl(),
