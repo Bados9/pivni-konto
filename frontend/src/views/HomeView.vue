@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '../stores/auth'
 import { useGroupsStore } from '../stores/groups'
 import { api } from '../services/api'
 import BeerButton from '../components/BeerButton.vue'
@@ -8,6 +9,7 @@ import StatsCard from '../components/StatsCard.vue'
 import EntryList from '../components/EntryList.vue'
 import AchievementToast from '../components/AchievementToast.vue'
 
+const auth = useAuthStore()
 const groups = useGroupsStore()
 const newAchievements = ref([])
 
@@ -138,6 +140,16 @@ function clearAchievements() {
 onMounted(async () => {
   await groups.fetchGroups()
   await Promise.all([fetchBeers(), fetchStats()])
+
+  // Default beer selection: last today's entry > user's default beer
+  const todayEntry = stats.value.todayEntries?.[0]
+  if (todayEntry?.beerId) {
+    selectedBeerId.value = todayEntry.beerId
+    return
+  }
+  if (auth.user?.defaultBeerId) {
+    selectedBeerId.value = auth.user.defaultBeerId
+  }
 })
 </script>
 

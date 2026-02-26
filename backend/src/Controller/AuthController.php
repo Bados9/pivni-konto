@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\BeerRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,6 +23,7 @@ class AuthController extends AbstractController
         private UserPasswordHasherInterface $passwordHasher,
         private ValidatorInterface $validator,
         private UserRepository $userRepository,
+        private BeerRepository $beerRepository,
         private RateLimiterFactory $registrationLimiter,
     ) {
     }
@@ -105,6 +107,7 @@ class AuthController extends AbstractController
             'name' => $user->getName(),
             'email' => $user->getEmail(),
             'avatar' => $user->getAvatar(),
+            'defaultBeerId' => $user->getDefaultBeer()?->getId()?->toRfc4122(),
             'createdAt' => $user->getCreatedAt()->format('c'),
         ]);
     }
@@ -117,23 +120,43 @@ class AuthController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
-        $name = $data['name'] ?? null;
+        if (array_key_exists('name', $data)) {
+            $name = $data['name'];
 
-        if (!$name || !is_string($name)) {
-            return $this->json([
-                'error' => 'Jméno je povinné',
-            ], Response::HTTP_BAD_REQUEST);
+            if (!$name || !is_string($name)) {
+                return $this->json([
+                    'error' => 'Jméno je povinné',
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $name = trim($name);
+
+            if (mb_strlen($name) < 2 || mb_strlen($name) > 100) {
+                return $this->json([
+                    'error' => 'Jméno musí mít 2 až 100 znaků',
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $user->setName($name);
         }
 
-        $name = trim($name);
+        if (array_key_exists('defaultBeerId', $data)) {
+            $defaultBeerId = $data['defaultBeerId'];
 
-        if (mb_strlen($name) < 2 || mb_strlen($name) > 100) {
-            return $this->json([
-                'error' => 'Jméno musí mít 2 až 100 znaků',
-            ], Response::HTTP_BAD_REQUEST);
+            if ($defaultBeerId === null) {
+                $user->setDefaultBeer(null);
+            }
+
+            if ($defaultBeerId !== null) {
+                $beer = $this->beerRepository->find($defaultBeerId);
+                if ($beer === null) {
+                    return $this->json([
+                        'error' => 'Pivo nenalezeno',
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+                $user->setDefaultBeer($beer);
+            }
         }
-
-        $user->setName($name);
 
         $errors = $this->validator->validate($user);
         if (count($errors) > 0) {
@@ -151,6 +174,7 @@ class AuthController extends AbstractController
             'name' => $user->getName(),
             'email' => $user->getEmail(),
             'avatar' => $user->getAvatar(),
+            'defaultBeerId' => $user->getDefaultBeer()?->getId()?->toRfc4122(),
             'createdAt' => $user->getCreatedAt()->format('c'),
         ]);
     }

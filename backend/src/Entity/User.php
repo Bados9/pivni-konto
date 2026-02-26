@@ -58,6 +58,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read', 'user:write', 'group:read'])]
     private ?string $avatar = null;
 
+    #[ORM\ManyToOne(targetEntity: Beer::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['user:read', 'user:write'])]
+    private ?Beer $defaultBeer = null;
+
     #[ORM\Column]
     #[Groups(['user:read'])]
     private \DateTimeImmutable $createdAt;
@@ -144,6 +149,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setAvatar(?string $avatar): static
     {
         $this->avatar = $avatar;
+        return $this;
+    }
+
+    public function getDefaultBeer(): ?Beer
+    {
+        return $this->defaultBeer;
+    }
+
+    public function setDefaultBeer(?Beer $defaultBeer): static
+    {
+        $this->defaultBeer = $defaultBeer;
         return $this;
     }
 
