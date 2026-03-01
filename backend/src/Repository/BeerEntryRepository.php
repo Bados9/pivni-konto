@@ -450,7 +450,6 @@ class BeerEntryRepository extends ServiceEntityRepository
         // Calculate time-based stats in PHP using drinking day logic
         $weekendBeers = 0;
         $earlyBird = false;
-        $nightOwl = false;
         $dailyCounts = [];
 
         foreach ($allEntries as $entry) {
@@ -465,14 +464,9 @@ class BeerEntryRepository extends ServiceEntityRepository
                 $weekendBeers += $quantity;
             }
 
-            // Early bird (before 10:00 but after 5:00 - drinking day start)
+            // Early bird (between 5:00 and 10:00)
             if ($hour >= 5 && $hour < 10) {
                 $earlyBird = true;
-            }
-
-            // Night owl (after midnight, before 5:00)
-            if ($hour >= 0 && $hour < 5) {
-                $nightOwl = true;
             }
 
             // Daily counts using drinking date
@@ -482,19 +476,19 @@ class BeerEntryRepository extends ServiceEntityRepository
         // Calculate max daily, consecutive days and days with X+ beers from daily counts
         $maxDaily = 0;
         $consecutiveDays = 0;
-        $daysWith5Beers = 0;
         $daysWith10Beers = 0;
+        $daysWith15Beers = 0;
 
         if (!empty($dailyCounts)) {
             $maxDaily = max($dailyCounts);
 
             // Count days with 5+ and 10+ beers
             foreach ($dailyCounts as $count) {
-                if ($count >= 5) {
-                    $daysWith5Beers++;
-                }
                 if ($count >= 10) {
                     $daysWith10Beers++;
+                }
+                if ($count >= 15) {
+                    $daysWith15Beers++;
                 }
             }
 
@@ -533,9 +527,8 @@ class BeerEntryRepository extends ServiceEntityRepository
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
             'early_bird' => $earlyBird,
-            'night_owl' => $nightOwl,
-            'days_with_5_beers' => $daysWith5Beers,
             'days_with_10_beers' => $daysWith10Beers,
+            'days_with_15_beers' => $daysWith15Beers,
         ];
     }
 }

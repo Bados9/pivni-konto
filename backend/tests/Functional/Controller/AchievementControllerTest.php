@@ -28,7 +28,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('achievements', $data);
         $this->assertArrayHasKey('summary', $data);
 
-        $this->assertCount(24, $data['achievements']);
+        $this->assertCount(26, $data['achievements']);
 
         // Check achievement structure
         $firstAchievement = $data['achievements'][0];
@@ -123,7 +123,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('percentage', $data);
         $this->assertArrayHasKey('recent', $data);
 
-        $this->assertEquals(24, $data['total']);
+        $this->assertEquals(26, $data['total']);
         $this->assertIsArray($data['recent']);
     }
 
@@ -153,16 +153,16 @@ class AchievementControllerTest extends ApiTestCase
         $data = $this->getResponseData();
 
         $this->assertEquals(2, $data['unlocked']);
-        $this->assertEquals(round((2 / 24) * 100), $data['percentage']);
+        $this->assertEquals(round((2 / 26) * 100), $data['percentage']);
     }
 
-    public function testMarathonAchievementShowsUnlocked(): void
+    public function testDailyRepeatableAchievementShowsUnlocked(): void
     {
         $user = $this->createUser();
 
         $achievement = new UserAchievement();
         $achievement->setUser($user);
-        $achievement->setAchievementId('marathon');
+        $achievement->setAchievementId('daily_10');
         $this->entityManager->persist($achievement);
         $this->entityManager->flush();
 
@@ -174,11 +174,12 @@ class AchievementControllerTest extends ApiTestCase
 
         $data = $this->getResponseData();
 
-        $marathon = array_values(array_filter(
+        $daily10 = array_values(array_filter(
             $data['achievements'],
-            fn($a) => $a['id'] === 'marathon'
+            fn($a) => $a['id'] === 'daily_10'
         ))[0];
 
-        $this->assertTrue($marathon['unlocked']);
+        $this->assertTrue($daily10['unlocked']);
+        $this->assertEquals(1, $daily10['timesUnlocked']);
     }
 }
