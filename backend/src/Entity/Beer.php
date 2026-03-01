@@ -133,4 +133,13 @@ class Beer
     {
         return $this->createdAt;
     }
+
+    public function __toString(): string
+    {
+        $label = $this->name;
+        if ($this->brewery) {
+            $label .= ' (' . $this->brewery . ')';
+        }
+        return $label;
+    }
 }
