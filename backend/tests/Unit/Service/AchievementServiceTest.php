@@ -55,15 +55,13 @@ class AchievementServiceTest extends TestCase
             'unique_beers' => 0,
             'unique_breweries' => 0,
             'early_bird' => false,
-            'night_owl' => false,
             'weekend_beers' => 0,
-            'large_beers' => 0,
             'small_beers' => 0,
             'max_daily' => 0,
             'max_loyal' => 0,
             'consecutive_days' => 0,
-            'days_with_5_beers' => 0,
             'days_with_10_beers' => 0,
+            'days_with_15_beers' => 0,
         ];
     }
 
@@ -111,7 +109,7 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['total_volume_ml'] = 50000; // 50 liters
+        $stats['total_volume_ml'] = 50000;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -130,7 +128,7 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['unique_beers'] = 10;
+        $stats['unique_beers'] = 15;
         $stats['unique_breweries'] = 5;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
@@ -141,8 +139,8 @@ class AchievementServiceTest extends TestCase
 
         $ids = array_column($result, 'id');
         $this->assertContains('variety_5', $ids);
-        $this->assertContains('variety_10', $ids);
-        $this->assertNotContains('variety_25', $ids);
+        $this->assertContains('variety_15', $ids);
+        $this->assertNotContains('variety_30', $ids);
         $this->assertContains('breweries_5', $ids);
     }
 
@@ -152,8 +150,7 @@ class AchievementServiceTest extends TestCase
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
         $stats['early_bird'] = true;
-        $stats['night_owl'] = true;
-        $stats['weekend_beers'] = 20;
+        $stats['weekend_beers'] = 30;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -163,17 +160,16 @@ class AchievementServiceTest extends TestCase
 
         $ids = array_column($result, 'id');
         $this->assertContains('early_bird', $ids);
-        $this->assertContains('night_owl', $ids);
         $this->assertContains('weekend_warrior', $ids);
     }
 
-    public function testMarathonRepeatableAchievement(): void
+    public function testDailyRepeatableAchievement(): void
     {
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['days_with_5_beers'] = 3;
-        $stats['max_daily'] = 5;
+        $stats['days_with_10_beers'] = 3;
+        $stats['max_daily'] = 10;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -182,10 +178,9 @@ class AchievementServiceTest extends TestCase
 
         $result = $this->service->checkAndUnlockAchievements($user);
 
-        $marathonAchievements = array_filter($result, fn($a) => $a['id'] === 'marathon');
-        $this->assertCount(1, $marathonAchievements);
-        $marathon = reset($marathonAchievements);
-        $this->assertEquals(3, $marathon['timesUnlocked']);
+        $daily10 = array_values(array_filter($result, fn($a) => $a['id'] === 'daily_10'));
+        $this->assertCount(1, $daily10);
+        $this->assertEquals(3, $daily10[0]['timesUnlocked']);
     }
 
     public function testRepeatableAchievementIncrement(): void
@@ -193,24 +188,23 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['days_with_5_beers'] = 5;
+        $stats['days_with_10_beers'] = 5;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
         $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
-            'marathon' => 3,
+            'daily_10' => 3,
             'first_beer' => 1,
         ]);
 
-        // 2 new marathon rows (5-3) persisted
+        // 2 new rows (5-3) persisted
         $this->entityManager->expects($this->exactly(2))->method('persist');
 
         $result = $this->service->checkAndUnlockAchievements($user);
 
-        $marathonAchievements = array_filter($result, fn($a) => $a['id'] === 'marathon');
-        $this->assertCount(1, $marathonAchievements);
-        $marathon = reset($marathonAchievements);
-        $this->assertEquals(5, $marathon['timesUnlocked']);
+        $daily10 = array_values(array_filter($result, fn($a) => $a['id'] === 'daily_10'));
+        $this->assertCount(1, $daily10);
+        $this->assertEquals(5, $daily10[0]['timesUnlocked']);
     }
 
     public function testNoNewAchievementsWhenAlreadyUnlocked(): void
@@ -237,9 +231,8 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['large_beers'] = 10;
         $stats['small_beers'] = 10;
-        $stats['max_loyal'] = 10;
+        $stats['max_loyal'] = 100;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -248,7 +241,6 @@ class AchievementServiceTest extends TestCase
         $result = $this->service->checkAndUnlockAchievements($user);
 
         $ids = array_column($result, 'id');
-        $this->assertContains('size_matters', $ids);
         $this->assertContains('small_but_mighty', $ids);
         $this->assertContains('loyal_fan', $ids);
     }
@@ -288,14 +280,12 @@ class AchievementServiceTest extends TestCase
         $this->assertIsArray($result);
         $this->assertNotEmpty($result);
 
-        // Check first_beer is unlocked
         $firstBeer = array_values(array_filter($result, fn($a) => $a['id'] === 'first_beer'))[0];
         $this->assertTrue($firstBeer['unlocked']);
         $this->assertEquals(1, $firstBeer['progress']);
         $this->assertEquals(1, $firstBeer['target']);
         $this->assertEquals(100, $firstBeer['percentage']);
 
-        // Check beer_50 progress (not yet unlocked)
         $beer50 = array_values(array_filter($result, fn($a) => $a['id'] === 'beer_50'))[0];
         $this->assertFalse($beer50['unlocked']);
         $this->assertEquals(30, $beer50['progress']);
@@ -321,17 +311,18 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(24, $result['total']);
+        $this->assertEquals(26, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 
-    public function testUltraMarathonRepeatableAchievement(): void
+    public function testDaily15RepeatableAchievement(): void
     {
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
         $stats['days_with_10_beers'] = 2;
-        $stats['max_daily'] = 10;
+        $stats['days_with_15_beers'] = 2;
+        $stats['max_daily'] = 15;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -339,8 +330,8 @@ class AchievementServiceTest extends TestCase
 
         $result = $this->service->checkAndUnlockAchievements($user);
 
-        $ultraMarathon = array_values(array_filter($result, fn($a) => $a['id'] === 'ultra_marathon'));
-        $this->assertCount(1, $ultraMarathon);
-        $this->assertEquals(2, $ultraMarathon[0]['timesUnlocked']);
+        $daily15 = array_values(array_filter($result, fn($a) => $a['id'] === 'daily_15'));
+        $this->assertCount(1, $daily15);
+        $this->assertEquals(2, $daily15[0]['timesUnlocked']);
     }
 }
