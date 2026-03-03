@@ -127,6 +127,12 @@ class LoadBeersCommand extends Command
             ['name' => 'Primátor Stout', 'brewery' => 'Primátor', 'style' => 'Stout', 'abv' => 4.7],
             ['name' => 'Primátor Weizenbier', 'brewery' => 'Primátor', 'style' => 'Wheat', 'abv' => 4.8],
             ['name' => 'Primátor English Pale Ale', 'brewery' => 'Primátor', 'style' => 'Pale Ale', 'abv' => 5.0],
+            ['name' => 'Primátor Antonín', 'brewery' => 'Primátor', 'style' => 'Lager', 'abv' => 4.0],
+
+            // Bakalář
+            ['name' => 'Bakalář 10° světlé výčepní', 'brewery' => 'Bakalář', 'style' => 'Lager', 'abv' => 4.0],
+            ['name' => 'Bakalář 11°', 'brewery' => 'Bakalář', 'style' => 'Lager', 'abv' => 4.5],
+            ['name' => 'Bakalář 12° Premium', 'brewery' => 'Bakalář', 'style' => 'Lager', 'abv' => 4.9],
 
             // Další regionální
             ['name' => 'Rohozec Skalák', 'brewery' => 'Rohozec', 'style' => 'Lager', 'abv' => 4.7],
