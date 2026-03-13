@@ -116,6 +116,9 @@ jobs:
             git checkout -- .
             git pull origin ${{ github.ref_name }}
 
+            # Ensure certbot directory exists
+            mkdir -p /var/www/pivnikonto/certbot/www
+
             # Remove old frontend build volume and rebuild containers
             docker compose -f docker-compose.prod.yml down
             docker volume rm pivnikonto_frontend_build || true
