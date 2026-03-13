@@ -1,4 +1,6 @@
 parameters:
+    app.vapid_public_key: '%env(VAPID_PUBLIC_KEY)%'
+    app.vapid_private_key: '%env(VAPID_PRIVATE_KEY)%'
 
 services:
     _defaults:
@@ -16,6 +18,15 @@ services:
     App\State\BeerEntryProcessor:
         arguments:
             $persistProcessor: '@api_platform.doctrine.orm.state.persist_processor'
+
+    App\Controller\PushController:
+        arguments:
+            $vapidPublicKey: '%app.vapid_public_key%'
+
+    App\Service\WebPushService:
+        arguments:
+            $vapidPublicKey: '%app.vapid_public_key%'
+            $vapidPrivateKey: '%app.vapid_private_key%'
 
     App\EventListener\AuthenticationSuccessListener:
         tags:

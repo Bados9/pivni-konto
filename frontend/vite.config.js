@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      workbox: {
+        importScripts: ['sw-push.js'],
+      },
       manifest: {
         name: 'Pivní Konto',
         short_name: 'Pivní Konto',

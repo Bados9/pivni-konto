@@ -296,6 +296,29 @@ class BeerEntryRepository extends ServiceEntityRepository
         return round($total / $days, 1);
     }
 
+    public function countGroupEntriesInPeriod(
+        Group $group,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        ?BeerEntry $exclude = null,
+    ): int {
+        $qb = $this->createQueryBuilder('e')
+            ->select('COUNT(e.id)')
+            ->where('e.group = :group')
+            ->andWhere('e.consumedAt >= :from')
+            ->andWhere('e.consumedAt < :to')
+            ->setParameter('group', $group)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to);
+
+        if ($exclude !== null) {
+            $qb->andWhere('e.id != :excludeId')
+                ->setParameter('excludeId', $exclude->getId());
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
     /**
      * Get group awards for specified periods.
      * Returns award type => [userId, userName, value] for each award.

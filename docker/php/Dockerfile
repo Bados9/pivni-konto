@@ -7,6 +7,7 @@ RUN apk add --no-cache \
     libpq-dev \
     icu-dev \
     libzip-dev \
+    gmp-dev \
     zip \
     unzip \
     linux-headers \
@@ -18,7 +19,8 @@ RUN docker-php-ext-install \
     pdo_pgsql \
     intl \
     opcache \
-    zip
+    zip \
+    gmp
 
 # Install Redis extension
 RUN pecl install redis && docker-php-ext-enable redis
