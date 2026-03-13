@@ -144,4 +144,9 @@ class Group
     {
         return $this->beerEntries;
     }
+
+    public function __toString(): string
+    {
+        return $this->name;
+    }
 }
