@@ -39,13 +39,13 @@ class DashboardController extends AbstractDashboardController
     {
         yield MenuItem::linkToDashboard('Dashboard', 'fa fa-home');
         yield MenuItem::section('Uživatelé');
-        yield MenuItem::linkToCrud('Uživatelé', 'fa fa-users', User::class);
+        yield MenuItem::linkTo(UserCrudController::class, 'Uživatelé', 'fa fa-users');
         yield MenuItem::section('Piva');
-        yield MenuItem::linkToCrud('Piva', 'fa fa-beer', Beer::class);
-        yield MenuItem::linkToCrud('Záznamy', 'fa fa-list', BeerEntry::class);
+        yield MenuItem::linkTo(BeerCrudController::class, 'Piva', 'fa fa-beer');
+        yield MenuItem::linkTo(BeerEntryCrudController::class, 'Záznamy', 'fa fa-list');
         yield MenuItem::section('Skupiny');
-        yield MenuItem::linkToCrud('Skupiny', 'fa fa-user-group', Group::class);
+        yield MenuItem::linkTo(GroupCrudController::class, 'Skupiny', 'fa fa-user-group');
         yield MenuItem::section('Achievementy');
-        yield MenuItem::linkToCrud('Achievementy', 'fa fa-trophy', UserAchievement::class);
+        yield MenuItem::linkTo(UserAchievementCrudController::class, 'Achievementy', 'fa fa-trophy');
     }
 }

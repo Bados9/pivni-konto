@@ -17,7 +17,7 @@ final class Version20260301113402 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $id = Uuid::v7()->toBinary();
+        $id = Uuid::v7()->toRfc4122();
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
         $this->addSql(
