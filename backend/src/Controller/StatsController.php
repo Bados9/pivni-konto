@@ -173,16 +173,28 @@ class StatsController extends AbstractController
         }
 
         $period = $request->query->get('period', 'week');
-        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
+        $customFrom = $request->query->get('from');
+        $customTo = $request->query->get('to');
 
-        $periodStart = match ($period) {
-            'today' => $this->drinkingDayService->getDrinkingDayStart(),
-            'month' => new \DateTimeImmutable('first day of this month 05:00'),
-            'year' => new \DateTimeImmutable('first day of january this year 05:00'),
-            default => new \DateTimeImmutable('monday this week 05:00'),
-        };
+        if ($customFrom) {
+            $periodStart = new \DateTimeImmutable($customFrom . ' 05:00');
+            $periodEnd = $customTo
+                ? (new \DateTimeImmutable($customTo . ' 05:00'))->modify('+1 day')
+                : $periodStart->modify('+1 day');
+            $period = 'custom';
+        } else {
+            $periodEnd = $this->drinkingDayService->getDrinkingDayEnd();
+            $drinkingDate = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
 
-        $leaderboard = $this->entryRepository->getLeaderboardWithAllMembers($group, $periodStart, $dayEnd);
+            $periodStart = match ($period) {
+                'today' => $this->drinkingDayService->getDrinkingDayStart(),
+                'month' => new \DateTimeImmutable((new \DateTimeImmutable($drinkingDate))->format('Y-m-01') . ' 05:00'),
+                'year' => new \DateTimeImmutable((new \DateTimeImmutable($drinkingDate))->format('Y-01-01') . ' 05:00'),
+                default => new \DateTimeImmutable((new \DateTimeImmutable($drinkingDate))->modify('monday this week')->format('Y-m-d') . ' 05:00'),
+            };
+        }
+
+        $leaderboard = $this->entryRepository->getLeaderboardWithAllMembers($group, $periodStart, $periodEnd);
 
         return $this->json([
             'group' => [
@@ -190,6 +202,8 @@ class StatsController extends AbstractController
                 'name' => $group->getName(),
             ],
             'period' => $period,
+            'from' => $periodStart->format('Y-m-d'),
+            'to' => $periodEnd->modify('-1 day')->format('Y-m-d'),
             'leaderboard' => $leaderboard,
         ]);
     }
