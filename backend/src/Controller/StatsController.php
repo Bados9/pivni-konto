@@ -120,11 +120,19 @@ class StatsController extends AbstractController
         $monthStart = new \DateTimeImmutable($drinkingDate->format('Y-m-01') . ' 05:00');
         $yearStart = new \DateTimeImmutable($drinkingDate->format('Y-01-01') . ' 05:00');
 
+        $thirtyDaysAgo = new \DateTimeImmutable('-30 days');
+
         $todayCount = $this->entryRepository->countByUserInPeriod($targetUser, $dayStart, $dayEnd);
         $weekCount = $this->entryRepository->countByUserInPeriod($targetUser, $weekStart, $dayEnd);
         $monthCount = $this->entryRepository->countByUserInPeriod($targetUser, $monthStart, $dayEnd);
         $yearCount = $this->entryRepository->countByUserInPeriod($targetUser, $yearStart, $dayEnd);
         $totals = $this->entryRepository->getTotalStatsByUser($targetUser);
+
+        $dailyCounts = $this->entryRepository->getDailyCountsByUser($targetUser, $thirtyDaysAgo, $dayEnd);
+        $topBeers = $this->entryRepository->getTopBeersByUser($targetUser);
+        $topBreweries = $this->entryRepository->getTopBreweriesByUser($targetUser);
+        $currentStreak = $this->entryRepository->getCurrentStreakByUser($targetUser);
+        $averagePerDay = $this->entryRepository->getAveragePerDayByUser($targetUser);
 
         return $this->json([
             'userId' => $targetUser->getId()->toRfc4122(),
@@ -135,6 +143,11 @@ class StatsController extends AbstractController
             'thisYear' => $yearCount,
             'totalBeers' => $totals['totalBeers'],
             'totalVolume' => $totals['totalVolume'],
+            'dailyCounts' => $dailyCounts,
+            'topBeers' => $topBeers,
+            'topBreweries' => $topBreweries,
+            'currentStreak' => $currentStreak,
+            'averagePerDay' => $averagePerDay,
         ]);
     }
 

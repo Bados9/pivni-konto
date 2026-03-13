@@ -13,7 +13,7 @@ function formatValue(val) {
 </script>
 
 <template>
-  <div class="card">
+  <div v-if="icon" class="card">
     <div class="flex items-center justify-between">
       <div>
         <p class="text-gray-400 text-sm">{{ title }}</p>
@@ -21,5 +21,9 @@ function formatValue(val) {
       </div>
       <span class="text-4xl">{{ icon }}</span>
     </div>
+  </div>
+  <div v-else class="bg-gray-800 rounded-xl p-2.5 shadow-lg min-w-0">
+    <p class="text-gray-400 text-xs truncate">{{ title }}</p>
+    <p class="text-lg font-bold text-white mt-0.5 truncate">{{ formatValue(value) }}</p>
   </div>
 </template>

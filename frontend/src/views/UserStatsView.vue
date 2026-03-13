@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
@@ -13,14 +13,45 @@ const stats = ref(null)
 const loading = ref(true)
 const error = ref('')
 
+const chartHeight = 120
+
+const last30Days = computed(() => {
+  const days = []
+  const today = new Date()
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    days.push(date.toISOString().split('T')[0])
+  }
+  return days
+})
+
+const chartData = computed(() => {
+  if (!stats.value) return []
+  const countsMap = {}
+  ;(stats.value.dailyCounts || []).forEach(d => {
+    countsMap[d.date] = d.count
+  })
+  return last30Days.value.map(date => ({
+    date,
+    count: countsMap[date] || 0
+  }))
+})
+
+const maxCount = computed(() => Math.max(...chartData.value.map(d => d.count), 1))
+
 function formatVolume(ml) {
   return (ml / 1000).toFixed(1)
+}
+
+function formatShortDate(dateStr) {
+  const date = new Date(dateStr)
+  return `${date.getDate()}.${date.getMonth() + 1}.`
 }
 
 async function fetchUserStats() {
   const userId = route.params.userId
 
-  // Redirect to own stats page if viewing self
   if (userId === 'me' || userId === auth.user?.id) {
     router.replace({ name: 'stats' })
     return
@@ -85,21 +116,87 @@ onMounted(fetchUserStats)
         </div>
       </section>
 
-      <!-- Total volume -->
+      <!-- Interesting numbers -->
       <section class="mb-6">
+        <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Čísla</h2>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="card text-center">
+            <p class="text-2xl font-bold text-beer-500">{{ stats.currentStreak }}</p>
+            <p class="text-xs text-gray-400">Dnů v řadě</p>
+          </div>
+          <div class="card text-center">
+            <p class="text-2xl font-bold text-beer-500">{{ stats.averagePerDay }}</p>
+            <p class="text-xs text-gray-400">Průměr/den</p>
+          </div>
+          <div class="card text-center">
+            <p class="text-2xl font-bold text-beer-500">{{ formatVolume(stats.totalVolume) }}l</p>
+            <p class="text-xs text-gray-400">Objem</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Daily chart -->
+      <section class="mb-6">
+        <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Posledních 30 dní</h2>
         <div class="card">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-gray-400 text-sm">Celkový objem</p>
-              <p class="text-3xl font-bold text-beer-500">{{ formatVolume(stats.totalVolume) }}l</p>
+          <div class="relative" :style="{ height: chartHeight + 'px' }">
+            <div class="absolute left-0 top-0 bottom-5 w-6 flex flex-col justify-between text-xs text-gray-500">
+              <span>{{ maxCount }}</span>
+              <span>0</span>
             </div>
-            <div class="text-right">
-              <p class="text-gray-400 text-sm">Celkem piv</p>
-              <p class="text-2xl font-bold">{{ stats.totalBeers }}</p>
+            <div class="absolute left-7 right-0 top-2 bottom-5 flex items-end gap-px">
+              <div
+                v-for="day in chartData"
+                :key="day.date"
+                class="flex-1 bg-beer-500/80 rounded-t transition-all hover:bg-beer-400"
+                :style="{ height: (day.count / maxCount) * 100 + '%', minHeight: day.count > 0 ? '4px' : '0' }"
+                :title="`${formatShortDate(day.date)}: ${day.count} piv`"
+              ></div>
+            </div>
+            <div class="absolute left-7 right-0 bottom-0 flex justify-between text-xs text-gray-500">
+              <span>{{ formatShortDate(chartData[0]?.date) }}</span>
+              <span>{{ formatShortDate(chartData[chartData.length - 1]?.date) }}</span>
             </div>
           </div>
         </div>
       </section>
+
+      <!-- Top beers and breweries -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <section>
+          <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Top piva</h2>
+          <div class="card space-y-2">
+            <div
+              v-for="(beer, index) in stats.topBeers"
+              :key="index"
+              class="flex items-center justify-between"
+            >
+              <span class="text-sm truncate flex-1 mr-2">{{ beer.name }}</span>
+              <span class="text-beer-500 font-bold text-sm">{{ Number.isInteger(beer.count) ? beer.count : beer.count.toFixed(1) }}</span>
+            </div>
+            <p v-if="!stats.topBeers || stats.topBeers.length === 0" class="text-gray-500 text-sm text-center py-2">
+              Žádná data
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Top pivovary</h2>
+          <div class="card space-y-2">
+            <div
+              v-for="(brewery, index) in stats.topBreweries"
+              :key="index"
+              class="flex items-center justify-between"
+            >
+              <span class="text-sm truncate flex-1 mr-2">{{ brewery.name }}</span>
+              <span class="text-beer-500 font-bold text-sm">{{ Number.isInteger(brewery.count) ? brewery.count : brewery.count.toFixed(1) }}</span>
+            </div>
+            <p v-if="!stats.topBreweries || stats.topBreweries.length === 0" class="text-gray-500 text-sm text-center py-2">
+              Žádná data
+            </p>
+          </div>
+        </section>
+      </div>
     </template>
   </div>
 </template>
