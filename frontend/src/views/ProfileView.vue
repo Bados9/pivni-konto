@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useGroupsStore } from '../stores/groups'
 import { api } from '../services/api'
+import { pushService } from '../services/push'
 import BeerSelect from '../components/BeerSelect.vue'
 
 const router = useRouter()
@@ -112,6 +113,51 @@ async function saveDefaultBeer(beerId) {
   }
 }
 
+// Push notifications
+const pushSupported = ref(false)
+const pushEnabled = ref(false)
+const pushLoading = ref(false)
+const testLoading = ref(false)
+const testSuccess = ref(false)
+
+async function checkPushStatus() {
+  pushSupported.value = pushService.isSupported()
+  if (!pushSupported.value) {
+    return
+  }
+  pushEnabled.value = await pushService.isSubscribed()
+}
+
+async function togglePush() {
+  pushLoading.value = true
+  try {
+    if (pushEnabled.value) {
+      await pushService.unsubscribe()
+      pushEnabled.value = false
+      return
+    }
+    pushEnabled.value = await pushService.subscribe()
+  } catch (error) {
+    console.error('Push toggle failed:', error)
+  } finally {
+    pushLoading.value = false
+  }
+}
+
+async function testNotification() {
+  testLoading.value = true
+  testSuccess.value = false
+  try {
+    await pushService.sendTest()
+    testSuccess.value = true
+    setTimeout(() => { testSuccess.value = false }, 3000)
+  } catch (error) {
+    console.error('Test notification failed:', error)
+  } finally {
+    testLoading.value = false
+  }
+}
+
 async function fetchAchievements() {
   try {
     achievements.value = await api.getMyAchievements()
@@ -124,6 +170,7 @@ onMounted(() => {
   groups.fetchGroups()
   fetchAchievements()
   fetchBeers()
+  checkPushStatus()
 })
 </script>
 
@@ -203,6 +250,44 @@ onMounted(() => {
         :beers="beers"
       />
       <p v-if="defaultBeerLoading" class="text-xs text-gray-500 mt-2">Ukládám...</p>
+    </div>
+
+    <!-- Push notifications -->
+    <div v-if="pushSupported" class="card mb-6">
+      <h3 class="font-semibold flex items-center gap-2 mb-3">
+        <span>🔔</span>
+        <span>Notifikace</span>
+      </h3>
+      <p class="text-sm text-gray-400 mb-3">
+        Buďte v obraze o dění ve vašich skupinách
+      </p>
+
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm">Push notifikace</span>
+          <button
+            @click="togglePush"
+            :disabled="pushLoading"
+            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+            :class="pushEnabled ? 'bg-beer-500' : 'bg-gray-600'"
+          >
+            <span
+              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+              :class="pushEnabled ? 'translate-x-6' : 'translate-x-1'"
+            />
+          </button>
+        </div>
+
+        <button
+          v-if="pushEnabled"
+          @click="testNotification"
+          :disabled="testLoading"
+          class="btn btn-secondary text-sm w-full"
+        >
+          {{ testLoading ? 'Odesílám...' : 'Otestovat notifikaci' }}
+        </button>
+        <p v-if="testSuccess" class="text-green-500 text-xs text-center">Testovací notifikace odeslána!</p>
+      </div>
     </div>
 
     <!-- Achievements summary -->
