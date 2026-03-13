@@ -180,8 +180,11 @@ class ApiService {
     return this.get(`/stats/user/${userId}`)
   }
 
-  getLeaderboard(groupId, period = 'week') {
-    return this.get(`/stats/leaderboard/${groupId}?period=${period}`)
+  getLeaderboard(groupId, period = 'week', { from, to } = {}) {
+    let url = `/stats/leaderboard/${groupId}?period=${period}`
+    if (from) url += `&from=${from}`
+    if (to) url += `&to=${to}`
+    return this.get(url)
   }
 
   // Beers

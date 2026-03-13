@@ -219,7 +219,25 @@ class LoadBeersCommand extends Command
             // Pivovar Pardubice
             ['name' => 'Pernštejn Hořká 12 ze sklepa', 'brewery' => 'Pivovar Pardubice', 'style' => 'Lager', 'abv' => 5.0],
 
+            // Vysoký Chlumec
+            ['name' => 'Démon', 'brewery' => 'Vysoký Chlumec', 'style' => 'Semi-dark Special', 'abv' => 5.2],
+
+            // Poutník Pelhřimov
+            ['name' => 'Poutník 10°', 'brewery' => 'Poutník Pelhřimov', 'style' => 'Lager', 'abv' => 4.0],
+            ['name' => 'Poutník 11°', 'brewery' => 'Poutník Pelhřimov', 'style' => 'Lager', 'abv' => 4.5],
+            ['name' => 'Poutník 12°', 'brewery' => 'Poutník Pelhřimov', 'style' => 'Lager', 'abv' => 5.0],
+
+            // Lucky Bastard
+            ['name' => 'Lucky Bastard Pale 12°', 'brewery' => 'Lucky Bastard', 'style' => 'APA', 'abv' => 5.2],
+            ['name' => 'Lucky Bastard 12° Rocker', 'brewery' => 'Lucky Bastard', 'style' => 'Lager', 'abv' => 5.0],
+
+            // Pivovar Moravia
+            ['name' => 'Kluzák 11', 'brewery' => 'Pivovar Moravia', 'style' => 'Lager', 'abv' => 4.7],
+
             // === ZAHRANIČNÍ ===
+            // Irsko
+            ['name' => 'Guinness Draught', 'brewery' => 'Guinness', 'style' => 'Stout', 'abv' => 4.2],
+
             // Španělsko
             ['name' => 'Estrella Galicia Especial', 'brewery' => 'Hijos de Rivera', 'style' => 'Pale Lager', 'abv' => 5.5],
         ];
