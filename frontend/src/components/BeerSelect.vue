@@ -145,7 +145,7 @@ function isFavorite(beerId) {
               ref="searchInputRef"
               v-model="searchQuery"
               type="text"
-              placeholder="Hledat pivo..."
+              placeholder="Hledat pivo nebo pivovar..."
               class="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm
                      placeholder-gray-500 focus:outline-none focus:border-beer-500 focus:ring-1 focus:ring-beer-500"
             />

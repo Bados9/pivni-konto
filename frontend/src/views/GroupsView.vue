@@ -25,8 +25,18 @@ const periods = [
   { id: 'week', label: 'Týden' },
   { id: 'month', label: 'Měsíc' },
   { id: 'year', label: 'Rok' },
+  { id: 'custom', label: 'Vlastní' },
 ]
 const activePeriod = ref('today')
+
+// Custom date range
+const showDatePicker = ref(false)
+const customFrom = ref(formatDateForInput(new Date()))
+const customTo = ref(formatDateForInput(new Date()))
+
+function formatDateForInput(date) {
+  return date.toISOString().split('T')[0]
+}
 
 // Computed max value for chart scaling
 const maxBeers = computed(() => {
@@ -47,7 +57,10 @@ async function fetchLeaderboard() {
 
   leaderboardLoading.value = true
   try {
-    const data = await api.getLeaderboard(groups.activeGroup.id, activePeriod.value)
+    const opts = activePeriod.value === 'custom'
+      ? { from: customFrom.value, to: customTo.value }
+      : {}
+    const data = await api.getLeaderboard(groups.activeGroup.id, activePeriod.value, opts)
     leaderboard.value = data.leaderboard || []
   } catch (err) {
     console.error('Failed to fetch leaderboard:', err)
@@ -58,6 +71,15 @@ async function fetchLeaderboard() {
 
 function setPeriod(period) {
   activePeriod.value = period
+  if (period === 'custom') {
+    showDatePicker.value = true
+    return
+  }
+  showDatePicker.value = false
+  fetchLeaderboard()
+}
+
+function applyCustomRange() {
   fetchLeaderboard()
 }
 
@@ -174,12 +196,43 @@ onMounted(async () => {
         </button>
       </div>
 
+      <!-- Custom date range picker -->
+      <div v-if="showDatePicker" class="card mb-6">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Od</label>
+            <input
+              v-model="customFrom"
+              type="date"
+              :max="customTo"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1">Do</label>
+            <input
+              v-model="customTo"
+              type="date"
+              :min="customFrom"
+              :max="formatDateForInput(new Date())"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
+            />
+          </div>
+        </div>
+        <button
+          @click="applyCustomRange"
+          class="w-full py-2 bg-beer-500 hover:bg-beer-600 rounded-lg font-medium text-sm transition-colors"
+        >
+          Zobrazit
+        </button>
+      </div>
+
       <!-- Stats summary -->
       <div class="card mb-6">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Celkem ve skupině</p>
-            <p class="text-3xl font-bold text-beer-500">{{ totalGroupBeers }}</p>
+            <p class="text-3xl font-bold text-beer-500">{{ Number.isInteger(totalGroupBeers) ? totalGroupBeers : totalGroupBeers.toFixed(1) }}</p>
           </div>
           <div class="text-right">
             <p class="text-gray-400 text-sm">Členů</p>
@@ -218,7 +271,7 @@ onMounted(async () => {
                       {{ entry.userName }} (vy)
                     </span>
                   </div>
-                  <span class="text-beer-500 font-bold shrink-0 ml-2">{{ entry.totalBeers }}</span>
+                  <span class="text-beer-500 font-bold shrink-0 ml-2">{{ Number.isInteger(entry.totalBeers) ? entry.totalBeers : entry.totalBeers.toFixed(1) }}</span>
                 </div>
                 <div class="h-6 bg-gray-700 rounded-full overflow-hidden">
                   <div
