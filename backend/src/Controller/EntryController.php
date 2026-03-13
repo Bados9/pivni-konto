@@ -10,6 +10,7 @@ use App\Repository\BeerRepository;
 use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Service\AchievementService;
+use App\Service\FirstBeerNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,6 +30,7 @@ class EntryController extends AbstractController
         private GroupMemberRepository $memberRepository,
         private BeerRepository $beerRepository,
         private AchievementService $achievementService,
+        private FirstBeerNotificationService $firstBeerNotificationService,
     ) {
     }
 
@@ -90,6 +92,8 @@ class EntryController extends AbstractController
 
         $this->entityManager->persist($entry);
         $this->entityManager->flush();
+
+        $this->firstBeerNotificationService->notifyIfFirstBeerInGroup($entry);
 
         // Check for newly unlocked achievements
         $newAchievements = $this->achievementService->checkAndUnlockAchievements($user);
