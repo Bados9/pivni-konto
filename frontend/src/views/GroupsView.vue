@@ -198,24 +198,24 @@ onMounted(async () => {
 
       <!-- Custom date range picker -->
       <div v-if="showDatePicker" class="card mb-6">
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <div>
+        <div class="flex items-end gap-3 mb-3">
+          <div class="flex-1 min-w-0">
             <label class="block text-xs text-gray-400 mb-1">Od</label>
             <input
               v-model="customFrom"
               type="date"
               :max="customTo"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
+              class="w-full h-10 px-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
             />
           </div>
-          <div>
+          <div class="flex-1 min-w-0">
             <label class="block text-xs text-gray-400 mb-1">Do</label>
             <input
               v-model="customTo"
               type="date"
               :min="customFrom"
               :max="formatDateForInput(new Date())"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
+              class="w-full h-10 px-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:border-beer-500 focus:outline-none"
             />
           </div>
         </div>
