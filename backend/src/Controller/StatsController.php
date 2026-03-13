@@ -37,9 +37,12 @@ class StatsController extends AbstractController
 
         $dayStart = $this->drinkingDayService->getDrinkingDayStart();
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
-        $weekStart = new \DateTimeImmutable('monday this week 05:00');
-        $monthStart = new \DateTimeImmutable('first day of this month 05:00');
-        $yearStart = new \DateTimeImmutable('first day of january this year 05:00');
+
+        // Use drinking date for period calculations to respect 5 AM boundary
+        $drinkingDate = new \DateTimeImmutable($this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable()));
+        $weekStart = new \DateTimeImmutable($drinkingDate->modify('monday this week')->format('Y-m-d') . ' 05:00');
+        $monthStart = new \DateTimeImmutable($drinkingDate->format('Y-m-01') . ' 05:00');
+        $yearStart = new \DateTimeImmutable($drinkingDate->format('Y-01-01') . ' 05:00');
         $thirtyDaysAgo = new \DateTimeImmutable('-30 days');
 
         $todayCount = $this->entryRepository->countByUserInPeriod($user, $dayStart, $dayEnd);
@@ -111,9 +114,11 @@ class StatsController extends AbstractController
 
         $dayStart = $this->drinkingDayService->getDrinkingDayStart();
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
-        $weekStart = new \DateTimeImmutable('monday this week 05:00');
-        $monthStart = new \DateTimeImmutable('first day of this month 05:00');
-        $yearStart = new \DateTimeImmutable('first day of january this year 05:00');
+
+        $drinkingDate = new \DateTimeImmutable($this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable()));
+        $weekStart = new \DateTimeImmutable($drinkingDate->modify('monday this week')->format('Y-m-d') . ' 05:00');
+        $monthStart = new \DateTimeImmutable($drinkingDate->format('Y-m-01') . ' 05:00');
+        $yearStart = new \DateTimeImmutable($drinkingDate->format('Y-01-01') . ' 05:00');
 
         $todayCount = $this->entryRepository->countByUserInPeriod($targetUser, $dayStart, $dayEnd);
         $weekCount = $this->entryRepository->countByUserInPeriod($targetUser, $weekStart, $dayEnd);
