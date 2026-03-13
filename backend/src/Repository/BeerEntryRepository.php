@@ -264,7 +264,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     }
 
     /**
-     * Get average beers per day (days with at least one beer)
+     * Get average beers per day (across all days since first entry)
      * Uses drinking day logic (day boundary at 5:00 AM)
      */
     public function getAveragePerDayByUser(User $user): float
@@ -273,25 +273,29 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->select('e.consumedAt, e.quantity, e.volumeMl')
             ->where('e.user = :user')
             ->setParameter('user', $user)
+            ->orderBy('e.consumedAt', 'ASC')
             ->getQuery()
             ->getResult();
 
-        $uniqueDays = [];
+        if (empty($entries)) {
+            return 0.0;
+        }
+
         $total = 0;
+        $firstDate = null;
         foreach ($entries as $entry) {
             $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
-            $uniqueDays[$drinkingDate] = true;
+            if ($firstDate === null) {
+                $firstDate = $drinkingDate;
+            }
             $score = $entry['volumeMl'] <= self::SMALL_BEER_THRESHOLD
                 ? $entry['quantity'] * 0.5
                 : $entry['quantity'];
             $total += $score;
         }
 
-        $days = count($uniqueDays);
-
-        if ($days === 0) {
-            return 0.0;
-        }
+        $today = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
+        $days = (new \DateTimeImmutable($firstDate))->diff(new \DateTimeImmutable($today))->days + 1;
 
         return round($total / $days, 1);
     }
