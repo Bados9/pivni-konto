@@ -183,7 +183,7 @@ onMounted(fetchStats)
               class="flex items-center justify-between"
             >
               <span class="text-sm truncate flex-1 mr-2">{{ beer.name }}</span>
-              <span class="text-beer-500 font-bold text-sm">{{ beer.count }}</span>
+              <span class="text-beer-500 font-bold text-sm">{{ Number.isInteger(beer.count) ? beer.count : beer.count.toFixed(1) }}</span>
             </div>
             <p v-if="stats.topBeers.length === 0" class="text-gray-500 text-sm text-center py-2">
               Žádná data
@@ -201,7 +201,7 @@ onMounted(fetchStats)
               class="flex items-center justify-between"
             >
               <span class="text-sm truncate flex-1 mr-2">{{ brewery.name }}</span>
-              <span class="text-beer-500 font-bold text-sm">{{ brewery.count }}</span>
+              <span class="text-beer-500 font-bold text-sm">{{ Number.isInteger(brewery.count) ? brewery.count : brewery.count.toFixed(1) }}</span>
             </div>
             <p v-if="stats.topBreweries.length === 0" class="text-gray-500 text-sm text-center py-2">
               Žádná data

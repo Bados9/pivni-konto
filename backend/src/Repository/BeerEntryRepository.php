@@ -14,11 +14,25 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class BeerEntryRepository extends ServiceEntityRepository
 {
+    /**
+     * Small beer volume threshold in ml.
+     * Beers with volumeMl <= this value count as 0.5 points.
+     */
+    private const SMALL_BEER_THRESHOLD = 330;
+
     public function __construct(
         ManagerRegistry $registry,
         private DrinkingDayService $drinkingDayService,
     ) {
         parent::__construct($registry, BeerEntry::class);
+    }
+
+    /**
+     * DQL expression for scoring: small beer (<=330ml) = 0.5 points, otherwise 1 point per quantity.
+     */
+    private function getScoreExpression(string $alias = 'e'): string
+    {
+        return "SUM(CASE WHEN {$alias}.volumeMl <= " . self::SMALL_BEER_THRESHOLD . " THEN {$alias}.quantity * 0.5 ELSE {$alias}.quantity * 1.0 END)";
     }
 
     /**
@@ -41,10 +55,10 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function countByUserInPeriod(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): int
+    public function countByUserInPeriod(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): float
     {
-        return (int) $this->createQueryBuilder('e')
-            ->select('SUM(e.quantity)')
+        return (float) ($this->createQueryBuilder('e')
+            ->select($this->getScoreExpression())
             ->where('e.user = :user')
             ->andWhere('e.consumedAt >= :from')
             ->andWhere('e.consumedAt < :to')
@@ -52,7 +66,7 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->setParameter('from', $from)
             ->setParameter('to', $to)
             ->getQuery()
-            ->getSingleScalarResult() ?? 0;
+            ->getSingleScalarResult() ?? 0);
     }
 
     /**
@@ -63,7 +77,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     {
         // Get all beers from users who are members of the group
         return $this->createQueryBuilder('e')
-            ->select('IDENTITY(e.user) as userId, u.name as userName, SUM(e.quantity) as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
+            ->select('IDENTITY(e.user) as userId, u.name as userName, ' . $this->getScoreExpression() . ' as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
             ->innerJoin('e.user', 'u')
             ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user AND gm.group = :group')
             ->where('e.consumedAt >= :from')
@@ -83,8 +97,10 @@ class BeerEntryRepository extends ServiceEntityRepository
      */
     public function getLeaderboardWithAllMembers(Group $group, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
+        $scoreExpr = "COALESCE(SUM(CASE WHEN e.volumeMl <= " . self::SMALL_BEER_THRESHOLD . " THEN e.quantity * 0.5 ELSE e.quantity * 1.0 END), 0)";
+
         $results = $this->getEntityManager()->createQueryBuilder()
-            ->select('u.id as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers, COALESCE(SUM(e.volumeMl * e.quantity), 0) as totalVolume')
+            ->select("u.id as userId, u.name as userName, {$scoreExpr} as totalBeers, COALESCE(SUM(e.volumeMl * e.quantity), 0) as totalVolume")
             ->from('App\Entity\GroupMember', 'gm')
             ->innerJoin('gm.user', 'u')
             ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :from AND e.consumedAt < :to')
@@ -100,7 +116,7 @@ class BeerEntryRepository extends ServiceEntityRepository
         return array_map(fn($row) => [
             'userId' => $row['userId']->toRfc4122(),
             'userName' => $row['userName'],
-            'totalBeers' => (int) $row['totalBeers'],
+            'totalBeers' => (float) $row['totalBeers'],
             'totalVolume' => (int) $row['totalVolume'],
         ], $results);
     }
@@ -111,14 +127,14 @@ class BeerEntryRepository extends ServiceEntityRepository
     public function getTotalStatsByUser(User $user): array
     {
         $result = $this->createQueryBuilder('e')
-            ->select('SUM(e.quantity) as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
+            ->select($this->getScoreExpression() . ' as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
             ->getSingleResult();
 
         return [
-            'totalBeers' => (int) ($result['totalBeers'] ?? 0),
+            'totalBeers' => (float) ($result['totalBeers'] ?? 0),
             'totalVolume' => (int) ($result['totalVolume'] ?? 0),
         ];
     }
@@ -131,7 +147,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     public function getDailyCountsByUser(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $entries = $this->createQueryBuilder('e')
-            ->select('e.consumedAt, e.quantity')
+            ->select('e.consumedAt, e.quantity, e.volumeMl')
             ->where('e.user = :user')
             ->andWhere('e.consumedAt >= :from')
             ->andWhere('e.consumedAt < :to')
@@ -145,7 +161,10 @@ class BeerEntryRepository extends ServiceEntityRepository
         $dailyCounts = [];
         foreach ($entries as $entry) {
             $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
-            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $entry['quantity'];
+            $score = $entry['volumeMl'] <= self::SMALL_BEER_THRESHOLD
+                ? $entry['quantity'] * 0.5
+                : $entry['quantity'];
+            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $score;
         }
 
         // Sort by date and format result
@@ -153,7 +172,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         $result = [];
         foreach ($dailyCounts as $date => $count) {
-            $result[] = ['date' => $date, 'count' => (int) $count];
+            $result[] = ['date' => $date, 'count' => (float) $count];
         }
 
         return $result;
@@ -166,7 +185,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     public function getTopBeersByUser(User $user, int $limit = 5): array
     {
         $results = $this->createQueryBuilder('e')
-            ->select("COALESCE(b.name, e.customBeerName) as name, SUM(e.quantity) as count")
+            ->select("COALESCE(b.name, e.customBeerName) as name, " . $this->getScoreExpression() . " as count")
             ->leftJoin('e.beer', 'b')
             ->where('e.user = :user')
             ->setParameter('user', $user)
@@ -178,7 +197,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         return array_map(fn($r) => [
             'name' => $r['name'] ?? 'Neznámé pivo',
-            'count' => (int) $r['count'],
+            'count' => (float) $r['count'],
         ], $results);
     }
 
@@ -189,7 +208,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     public function getTopBreweriesByUser(User $user, int $limit = 5): array
     {
         $results = $this->createQueryBuilder('e')
-            ->select("COALESCE(b.brewery, 'Neznámý pivovar') as name, SUM(e.quantity) as count")
+            ->select("COALESCE(b.brewery, 'Neznámý pivovar') as name, " . $this->getScoreExpression() . " as count")
             ->leftJoin('e.beer', 'b')
             ->where('e.user = :user')
             ->setParameter('user', $user)
@@ -201,7 +220,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         return array_map(fn($r) => [
             'name' => $r['name'],
-            'count' => (int) $r['count'],
+            'count' => (float) $r['count'],
         ], $results);
     }
 
@@ -251,7 +270,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     public function getAveragePerDayByUser(User $user): float
     {
         $entries = $this->createQueryBuilder('e')
-            ->select('e.consumedAt, e.quantity')
+            ->select('e.consumedAt, e.quantity, e.volumeMl')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
@@ -262,7 +281,10 @@ class BeerEntryRepository extends ServiceEntityRepository
         foreach ($entries as $entry) {
             $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
             $uniqueDays[$drinkingDate] = true;
-            $total += $entry['quantity'];
+            $score = $entry['volumeMl'] <= self::SMALL_BEER_THRESHOLD
+                ? $entry['quantity'] * 0.5
+                : $entry['quantity'];
+            $total += $score;
         }
 
         $days = count($uniqueDays);
@@ -293,6 +315,8 @@ class BeerEntryRepository extends ServiceEntityRepository
         $em = $this->getEntityManager();
         $awards = [];
 
+        $scoreExpr = "COALESCE(SUM(CASE WHEN e.volumeMl <= " . self::SMALL_BEER_THRESHOLD . " THEN e.quantity * 0.5 ELSE e.quantity * 1.0 END), 0)";
+
         // Drinker of the day: most beers today (min 5 active drinkers required)
         $activeDrinkers = (int) $em->createQueryBuilder()
             ->select('COUNT(DISTINCT IDENTITY(gm.user))')
@@ -307,7 +331,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         if ($activeDrinkers >= 5) {
             $drinkerOfDay = $em->createQueryBuilder()
-                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
                 ->from('App\Entity\GroupMember', 'gm')
                 ->innerJoin('gm.user', 'u')
                 ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
@@ -321,11 +345,11 @@ class BeerEntryRepository extends ServiceEntityRepository
                 ->getQuery()
                 ->getOneOrNullResult();
 
-            if ($drinkerOfDay !== null && (int) $drinkerOfDay['totalBeers'] > 0) {
+            if ($drinkerOfDay !== null && (float) $drinkerOfDay['totalBeers'] > 0) {
                 $awards['drinker_of_day'] = [
                     'userId' => $drinkerOfDay['userId'],
                     'userName' => $drinkerOfDay['userName'],
-                    'value' => (int) $drinkerOfDay['totalBeers'],
+                    'value' => (float) $drinkerOfDay['totalBeers'],
                 ];
             }
         }
@@ -333,7 +357,7 @@ class BeerEntryRepository extends ServiceEntityRepository
         // Drinker of the week
         if ($weekStart !== null && $weekEnd !== null) {
             $drinkerOfWeek = $em->createQueryBuilder()
-                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
                 ->from('App\Entity\GroupMember', 'gm')
                 ->innerJoin('gm.user', 'u')
                 ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :weekStart AND e.consumedAt < :weekEnd')
@@ -347,11 +371,11 @@ class BeerEntryRepository extends ServiceEntityRepository
                 ->getQuery()
                 ->getOneOrNullResult();
 
-            if ($drinkerOfWeek !== null && (int) $drinkerOfWeek['totalBeers'] > 0) {
+            if ($drinkerOfWeek !== null && (float) $drinkerOfWeek['totalBeers'] > 0) {
                 $awards['drinker_of_week'] = [
                     'userId' => $drinkerOfWeek['userId'],
                     'userName' => $drinkerOfWeek['userName'],
-                    'value' => (int) $drinkerOfWeek['totalBeers'],
+                    'value' => (float) $drinkerOfWeek['totalBeers'],
                 ];
             }
         }
@@ -359,7 +383,7 @@ class BeerEntryRepository extends ServiceEntityRepository
         // Drinker of the month
         if ($monthStart !== null && $monthEnd !== null) {
             $drinkerOfMonth = $em->createQueryBuilder()
-                ->select('IDENTITY(gm.user) as userId, u.name as userName, COALESCE(SUM(e.quantity), 0) as totalBeers')
+                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
                 ->from('App\Entity\GroupMember', 'gm')
                 ->innerJoin('gm.user', 'u')
                 ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :monthStart AND e.consumedAt < :monthEnd')
@@ -373,11 +397,11 @@ class BeerEntryRepository extends ServiceEntityRepository
                 ->getQuery()
                 ->getOneOrNullResult();
 
-            if ($drinkerOfMonth !== null && (int) $drinkerOfMonth['totalBeers'] > 0) {
+            if ($drinkerOfMonth !== null && (float) $drinkerOfMonth['totalBeers'] > 0) {
                 $awards['drinker_of_month'] = [
                     'userId' => $drinkerOfMonth['userId'],
                     'userName' => $drinkerOfMonth['userName'],
-                    'value' => (int) $drinkerOfMonth['totalBeers'],
+                    'value' => (float) $drinkerOfMonth['totalBeers'],
                 ];
             }
         }
@@ -393,7 +417,7 @@ class BeerEntryRepository extends ServiceEntityRepository
     {
         // Basic totals
         $totals = $this->createQueryBuilder('e')
-            ->select('SUM(e.quantity) as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
+            ->select($this->getScoreExpression() . ' as totalBeers, SUM(e.volumeMl * e.quantity) as totalVolume')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
@@ -429,7 +453,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         // Max beers per single beer type (loyalty)
         $maxLoyal = $this->createQueryBuilder('e')
-            ->select('SUM(e.quantity) as count')
+            ->select($this->getScoreExpression() . ' as count')
             ->where('e.user = :user')
             ->andWhere('e.beer IS NOT NULL')
             ->setParameter('user', $user)
@@ -441,7 +465,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         // Fetch all entries for time-based calculations (weekend, daily, early/night)
         $allEntries = $this->createQueryBuilder('e')
-            ->select('e.consumedAt, e.quantity')
+            ->select('e.consumedAt, e.quantity, e.volumeMl')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
@@ -455,13 +479,18 @@ class BeerEntryRepository extends ServiceEntityRepository
         foreach ($allEntries as $entry) {
             $consumedAt = $entry['consumedAt'];
             $quantity = $entry['quantity'];
+            $volumeMl = $entry['volumeMl'];
             $drinkingDate = $this->drinkingDayService->getDrinkingDate($consumedAt);
             $hour = (int) $consumedAt->format('H');
+
+            $score = $volumeMl <= self::SMALL_BEER_THRESHOLD
+                ? $quantity * 0.5
+                : $quantity;
 
             // Weekend check uses drinking date
             $drinkingDayOfWeek = (int) (new \DateTimeImmutable($drinkingDate))->format('N');
             if ($drinkingDayOfWeek >= 6) {
-                $weekendBeers += $quantity;
+                $weekendBeers += $score;
             }
 
             // Early bird (between 5:00 and 10:00)
@@ -470,7 +499,7 @@ class BeerEntryRepository extends ServiceEntityRepository
             }
 
             // Daily counts using drinking date
-            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $quantity;
+            $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $score;
         }
 
         // Calculate max daily, consecutive days and days with X+ beers from daily counts
@@ -516,14 +545,14 @@ class BeerEntryRepository extends ServiceEntityRepository
         }
 
         return [
-            'total_beers' => (int) ($totals['totalBeers'] ?? 0),
+            'total_beers' => (float) ($totals['totalBeers'] ?? 0),
             'total_volume_ml' => (int) ($totals['totalVolume'] ?? 0),
             'unique_beers' => (int) $uniqueBeers,
             'unique_breweries' => (int) $uniqueBreweries,
             'large_beers' => (int) ($sizeStats['largeBeers'] ?? 0),
             'small_beers' => (int) ($sizeStats['smallBeers'] ?? 0),
             'weekend_beers' => $weekendBeers,
-            'max_loyal' => (int) ($maxLoyal['count'] ?? 0),
+            'max_loyal' => (float) ($maxLoyal['count'] ?? 0),
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
             'early_bird' => $earlyBird,

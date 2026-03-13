@@ -179,7 +179,7 @@ onMounted(async () => {
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Celkem ve skupině</p>
-            <p class="text-3xl font-bold text-beer-500">{{ totalGroupBeers }}</p>
+            <p class="text-3xl font-bold text-beer-500">{{ Number.isInteger(totalGroupBeers) ? totalGroupBeers : totalGroupBeers.toFixed(1) }}</p>
           </div>
           <div class="text-right">
             <p class="text-gray-400 text-sm">Členů</p>
@@ -218,7 +218,7 @@ onMounted(async () => {
                       {{ entry.userName }} (vy)
                     </span>
                   </div>
-                  <span class="text-beer-500 font-bold shrink-0 ml-2">{{ entry.totalBeers }}</span>
+                  <span class="text-beer-500 font-bold shrink-0 ml-2">{{ Number.isInteger(entry.totalBeers) ? entry.totalBeers : entry.totalBeers.toFixed(1) }}</span>
                 </div>
                 <div class="h-6 bg-gray-700 rounded-full overflow-hidden">
                   <div
