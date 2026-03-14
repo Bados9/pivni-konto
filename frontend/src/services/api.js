@@ -196,6 +196,10 @@ class ApiService {
     return this.get(`/beers?name=${encodeURIComponent(query)}`)
   }
 
+  suggestBeer(name) {
+    return this.post('/beers/suggest', { name })
+  }
+
   // Achievements
   getMyAchievements() {
     return this.get('/achievements/me')

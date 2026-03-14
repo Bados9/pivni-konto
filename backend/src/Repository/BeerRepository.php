@@ -30,4 +30,26 @@ class BeerRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    public function findByNameCaseInsensitive(string $name): ?Beer
+    {
+        return $this->createQueryBuilder('b')
+            ->where('LOWER(b.name) = LOWER(:name)')
+            ->setParameter('name', $name)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function countPendingByUser(object $user): int
+    {
+        return (int) $this->createQueryBuilder('b')
+            ->select('COUNT(b.id)')
+            ->where('b.submittedBy = :user')
+            ->andWhere('b.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('status', 'pending')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

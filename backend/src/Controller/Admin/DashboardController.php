@@ -42,6 +42,9 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkTo(UserCrudController::class, 'Uživatelé', 'fa fa-users');
         yield MenuItem::section('Piva');
         yield MenuItem::linkTo(BeerCrudController::class, 'Piva', 'fa fa-beer');
+        yield MenuItem::linkTo(BeerCrudController::class, 'Ke schválení', 'fa fa-clock')
+            ->setQueryParameter('filters[status][comparison]', '=')
+            ->setQueryParameter('filters[status][value]', 'pending');
         yield MenuItem::linkTo(BeerEntryCrudController::class, 'Záznamy', 'fa fa-list');
         yield MenuItem::section('Skupiny');
         yield MenuItem::linkTo(GroupCrudController::class, 'Skupiny', 'fa fa-user-group');

@@ -21,6 +21,11 @@ services:
         arguments:
             $persistProcessor: '@api_platform.doctrine.orm.state.persist_processor'
 
+    # State Processor pro návrhy piv
+    App\State\BeerSubmissionProcessor:
+        arguments:
+            $persistProcessor: '@api_platform.doctrine.orm.state.persist_processor'
+
     App\Controller\PushController:
         arguments:
             $vapidPublicKey: '%app.vapid_public_key%'

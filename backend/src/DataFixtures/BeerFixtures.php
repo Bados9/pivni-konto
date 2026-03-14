@@ -25,7 +25,6 @@ class BeerFixtures extends Fixture
             ['name' => 'Kozel 11°', 'brewery' => 'Kozel', 'style' => 'Lager', 'abv' => 4.6],
             ['name' => 'Kozel 12°', 'brewery' => 'Kozel', 'style' => 'Lager', 'abv' => 5.0],
             ['name' => 'Kozel Černý', 'brewery' => 'Kozel', 'style' => 'Dark Lager', 'abv' => 3.8],
-            ['name' => 'Birell Světlý', 'brewery' => 'Birell', 'style' => 'Non-alcoholic', 'abv' => 0.5],
 
             // Budějovický Budvar
             ['name' => 'Budvar Original', 'brewery' => 'Budějovický Budvar', 'style' => 'Lager', 'abv' => 5.0],
@@ -33,7 +32,6 @@ class BeerFixtures extends Fixture
             ['name' => 'Budvar Kroužkovaný', 'brewery' => 'Budějovický Budvar', 'style' => 'Lager', 'abv' => 4.7],
             ['name' => 'Budvar Reserve', 'brewery' => 'Budějovický Budvar', 'style' => 'Lager', 'abv' => 7.5],
             ['name' => 'Budvar Tmavý ležák', 'brewery' => 'Budějovický Budvar', 'style' => 'Dark Lager', 'abv' => 4.7],
-            ['name' => 'Budvar Nealko', 'brewery' => 'Budějovický Budvar', 'style' => 'Non-alcoholic', 'abv' => 0.5],
             ['name' => 'Pardál Echt', 'brewery' => 'Budějovický Budvar', 'style' => 'Lager', 'abv' => 4.0],
 
             // Staropramen
@@ -62,7 +60,6 @@ class BeerFixtures extends Fixture
             ['name' => 'Bernard Jantarový ležák', 'brewery' => 'Bernard', 'style' => 'Amber Lager', 'abv' => 5.0],
             ['name' => 'Bernard Sváteční ležák', 'brewery' => 'Bernard', 'style' => 'Lager', 'abv' => 5.0],
             ['name' => 'Bernard Bohemian Ale', 'brewery' => 'Bernard', 'style' => 'Ale', 'abv' => 8.2],
-            ['name' => 'Bernard Free', 'brewery' => 'Bernard', 'style' => 'Non-alcoholic', 'abv' => 0.5],
 
             // Svijany
             ['name' => 'Svijanský Máz', 'brewery' => 'Svijany', 'style' => 'Lager', 'abv' => 4.8],
