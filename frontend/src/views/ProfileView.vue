@@ -248,6 +248,7 @@ onMounted(() => {
         :modelValue="defaultBeerId"
         @update:modelValue="saveDefaultBeer"
         :beers="beers"
+        @beersUpdated="fetchBeers"
       />
       <p v-if="defaultBeerLoading" class="text-xs text-gray-500 mt-2">Ukládám...</p>
     </div>

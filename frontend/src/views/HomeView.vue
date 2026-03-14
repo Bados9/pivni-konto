@@ -180,7 +180,7 @@ onMounted(async () => {
       <!-- Beer type select -->
       <div class="mb-4">
         <label class="block text-sm text-gray-400 mb-2">Typ piva</label>
-        <BeerSelect v-model="selectedBeerId" :beers="beers" />
+        <BeerSelect v-model="selectedBeerId" :beers="beers" @beersUpdated="fetchBeers" />
         <p v-if="selectedBeer" class="mt-2 text-sm text-beer-400">
           {{ selectedBeer.style }}{{ selectedBeer.abv ? ` · ${selectedBeer.abv}% alk.` : '' }}
         </p>
@@ -289,7 +289,7 @@ onMounted(async () => {
         <!-- Beer type -->
         <div class="mb-4">
           <label class="block text-sm text-gray-400 mb-2">Typ piva</label>
-          <BeerSelect v-model="retroBeerId" :beers="beers" />
+          <BeerSelect v-model="retroBeerId" :beers="beers" @beersUpdated="fetchBeers" />
         </div>
 
         <!-- Size toggle -->

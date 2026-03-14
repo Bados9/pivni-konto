@@ -9,6 +9,7 @@ use ApiPlatform\Metadata\Post;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Metadata\ApiFilter;
 use App\Repository\BeerRepository;
+use App\State\BeerSubmissionProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Uid\Uuid;
@@ -22,7 +23,16 @@ use Symfony\Component\Validator\Constraints as Assert;
             security: "is_granted('ROLE_USER')",
             paginationEnabled: false,
         ),
-        new Post(security: "is_granted('ROLE_ADMIN')"),
+        new Post(
+            security: "is_granted('ROLE_ADMIN')",
+            denormalizationContext: ['groups' => ['beer:write']],
+        ),
+        new Post(
+            uriTemplate: '/beers/suggest',
+            security: "is_granted('ROLE_USER')",
+            denormalizationContext: ['groups' => ['beer:suggest']],
+            processor: BeerSubmissionProcessor::class,
+        ),
     ],
     normalizationContext: ['groups' => ['beer:read']],
     denormalizationContext: ['groups' => ['beer:write']],
@@ -38,8 +48,8 @@ class Beer
 
     #[ORM\Column(length: 100)]
     #[Assert\NotBlank]
-    #[Assert\Length(min: 1, max: 100)]
-    #[Groups(['beer:read', 'beer:write', 'entry:read'])]
+    #[Assert\Length(min: 2, max: 100)]
+    #[Groups(['beer:read', 'beer:write', 'beer:suggest', 'entry:read'])]
     private string $name;
 
     #[ORM\Column(length: 100, nullable: true)]
@@ -58,6 +68,15 @@ class Beer
     #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['beer:read', 'beer:write'])]
     private ?string $logo = null;
+
+    #[ORM\Column(length: 20)]
+    #[Groups(['beer:read'])]
+    private string $status = 'approved';
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['beer:read'])]
+    private ?User $submittedBy = null;
 
     #[ORM\Column]
     #[Groups(['beer:read'])]
@@ -126,6 +145,28 @@ class Beer
     public function setLogo(?string $logo): static
     {
         $this->logo = $logo;
+        return $this;
+    }
+
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): static
+    {
+        $this->status = $status;
+        return $this;
+    }
+
+    public function getSubmittedBy(): ?User
+    {
+        return $this->submittedBy;
+    }
+
+    public function setSubmittedBy(?User $submittedBy): static
+    {
+        $this->submittedBy = $submittedBy;
         return $this;
     }
 

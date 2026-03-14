@@ -1,18 +1,26 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { onClickOutside } from '@vueuse/core'
+import { api } from '../services/api'
 
 const props = defineProps({
   modelValue: String,
   beers: Array
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'beersUpdated'])
 
 const isOpen = ref(false)
 const dropdownRef = ref(null)
 const searchInputRef = ref(null)
 const searchQuery = ref('')
+
+// Suggest beer state
+const showSuggestForm = ref(false)
+const suggestName = ref('')
+const suggesting = ref(false)
+const suggestError = ref('')
+const suggestSuccess = ref(false)
 
 // Favorites stored in localStorage
 const favorites = ref(new Set(JSON.parse(localStorage.getItem('favoriteBeers') || '[]')))
@@ -89,6 +97,39 @@ function toggleFavorite(event, beerId) {
 function isFavorite(beerId) {
   return favorites.value.has(beerId)
 }
+
+function isPending(beer) {
+  return beer.status === 'pending'
+}
+
+function openSuggestForm() {
+  suggestName.value = searchQuery.value
+  showSuggestForm.value = true
+  suggestError.value = ''
+  suggestSuccess.value = false
+}
+
+async function submitSuggestion() {
+  const name = suggestName.value.trim()
+  if (!name || name.length < 2) {
+    suggestError.value = 'Název musí mít alespoň 2 znaky.'
+    return
+  }
+
+  suggesting.value = true
+  suggestError.value = ''
+  try {
+    await api.suggestBeer(name)
+    suggestSuccess.value = true
+    showSuggestForm.value = false
+    suggestName.value = ''
+    emit('beersUpdated')
+  } catch (error) {
+    suggestError.value = error.message
+  } finally {
+    suggesting.value = false
+  }
+}
 </script>
 
 <template>
@@ -163,9 +204,16 @@ function isFavorite(beerId) {
 
         <div class="max-h-64 overflow-y-auto custom-scrollbar">
           <!-- No results -->
-          <div v-if="filteredBeers.length === 0 && searchQuery" class="px-4 py-8 text-center text-gray-500">
+          <div v-if="filteredBeers.length === 0 && searchQuery" class="px-4 py-6 text-center text-gray-500">
             <span class="text-2xl block mb-2">🔍</span>
-            Žádné pivo nenalezeno
+            <p class="mb-3">Žádné pivo nenalezeno</p>
+            <button
+              v-if="!showSuggestForm"
+              @click="openSuggestForm"
+              class="text-beer-400 hover:text-beer-300 text-sm font-medium transition-colors"
+            >
+              Navrhnout nové pivo
+            </button>
           </div>
 
           <template v-else>
@@ -207,7 +255,10 @@ function isFavorite(beerId) {
                   ⭐
                 </button>
                 <div class="min-w-0 flex-1">
-                  <span class="block font-medium truncate">{{ beer.name }}</span>
+                  <span class="block font-medium truncate" :class="{ 'text-gray-500 italic': isPending(beer) }">
+                    {{ beer.name }}
+                    <span v-if="isPending(beer)" class="text-xs text-gray-500 font-normal" title="Čeká na schválení">( čeká na schválení )</span>
+                  </span>
                   <span class="block text-sm text-gray-500 truncate">
                     {{ beer.brewery }}
                     <span v-if="beer.abv" class="text-beer-600">· {{ beer.abv }}%</span>
@@ -242,7 +293,10 @@ function isFavorite(beerId) {
                   ☆
                 </button>
                 <div class="min-w-0 flex-1">
-                  <span class="block font-medium truncate">{{ beer.name }}</span>
+                  <span class="block font-medium truncate" :class="{ 'text-gray-500 italic': isPending(beer) }">
+                    {{ beer.name }}
+                    <span v-if="isPending(beer)" class="text-xs text-gray-500 font-normal" title="Čeká na schválení">( čeká na schválení )</span>
+                  </span>
                   <span class="block text-sm text-gray-500 truncate">
                     {{ beer.brewery }}
                     <span v-if="beer.abv" class="text-beer-600">· {{ beer.abv }}%</span>
@@ -254,6 +308,52 @@ function isFavorite(beerId) {
               </button>
             </template>
           </template>
+
+          <!-- Suggest beer form -->
+          <div v-if="showSuggestForm" class="p-3 border-t border-gray-700">
+            <p class="text-xs text-gray-400 mb-2">Navrhnout nové pivo</p>
+            <div class="flex gap-2">
+              <input
+                v-model="suggestName"
+                type="text"
+                placeholder="Název piva..."
+                maxlength="100"
+                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm
+                       placeholder-gray-500 focus:outline-none focus:border-beer-500 focus:ring-1 focus:ring-beer-500"
+                @keydown.enter="submitSuggestion"
+              />
+              <button
+                @click="submitSuggestion"
+                :disabled="suggesting || suggestName.trim().length < 2"
+                class="px-3 py-2 bg-beer-500 hover:bg-beer-600 disabled:bg-gray-600 disabled:text-gray-400
+                       rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                {{ suggesting ? '...' : 'Navrhnout' }}
+              </button>
+            </div>
+            <p v-if="suggestError" class="text-red-400 text-xs mt-1">{{ suggestError }}</p>
+            <button
+              @click="showSuggestForm = false"
+              class="text-gray-500 hover:text-gray-300 text-xs mt-1 transition-colors"
+            >
+              Zrušit
+            </button>
+          </div>
+
+          <!-- Success message -->
+          <div v-if="suggestSuccess" class="px-4 py-3 border-t border-gray-700 text-center">
+            <p class="text-green-400 text-sm">Pivo bylo navrženo a čeká na schválení.</p>
+          </div>
+
+          <!-- Suggest link (when results exist) -->
+          <div v-if="filteredBeers.length > 0 && !showSuggestForm && !suggestSuccess" class="px-4 py-2 border-t border-gray-700 text-center">
+            <button
+              @click="openSuggestForm"
+              class="text-gray-500 hover:text-beer-400 text-xs transition-colors"
+            >
+              Nenašli jste své pivo? Navrhnout nové
+            </button>
+          </div>
         </div>
       </div>
     </Transition>
