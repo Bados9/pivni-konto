@@ -4,59 +4,56 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
-use App\Entity\BeerEntry;
+use App\Entity\GroupMember;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Filters;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\IntegerField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
-use EasyCorp\Bundle\EasyAdminBundle\Filter\DateTimeFilter;
+use EasyCorp\Bundle\EasyAdminBundle\Filter\ChoiceFilter;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\EntityFilter;
 
-class BeerEntryCrudController extends AbstractCrudController
+class GroupMemberCrudController extends AbstractCrudController
 {
     public static function getEntityFqcn(): string
     {
-        return BeerEntry::class;
+        return GroupMember::class;
     }
 
     public function configureCrud(Crud $crud): Crud
     {
         return $crud
-            ->setEntityLabelInSingular('Záznam')
-            ->setEntityLabelInPlural('Záznamy')
-            ->setDefaultSort(['consumedAt' => 'DESC'])
-            ->setSearchFields(['user.name', 'beer.name', 'customBeerName', 'note'])
-            ->showEntityActionsInlined();
+            ->setEntityLabelInSingular('Členství')
+            ->setEntityLabelInPlural('Členství ve skupinách')
+            ->setDefaultSort(['joinedAt' => 'DESC'])
+            ->setSearchFields(['user.name', 'group.name']);
     }
 
     public function configureActions(Actions $actions): Actions
     {
         return $actions
-            ->disable(Action::NEW)
-            ->add(Crud::PAGE_INDEX, Action::DETAIL);
+            ->disable(Action::NEW, Action::EDIT);
     }
 
     public function configureFields(string $pageName): iterable
     {
         yield IdField::new('id')->hideOnForm()->hideOnIndex();
         yield AssociationField::new('user', 'Uživatel');
-        yield AssociationField::new('beer', 'Pivo');
-        yield TextField::new('customBeerName', 'Vlastní název');
         yield AssociationField::new('group', 'Skupina');
-        yield IntegerField::new('quantity', 'Množství');
-        yield IntegerField::new('volumeMl', 'Objem (ml)');
-        yield DateTimeField::new('consumedAt', 'Vypito')
-            ->setFormat('d.M.Y HH:mm');
-        yield TextField::new('note', 'Poznámka')->hideOnIndex();
-        yield DateTimeField::new('createdAt', 'Vytvořeno')
-            ->hideOnForm()
-            ->hideOnIndex()
+        yield ChoiceField::new('role', 'Role')
+            ->setChoices([
+                'Admin' => 'admin',
+                'Člen' => 'member',
+            ])
+            ->renderAsBadges([
+                'admin' => 'primary',
+                'member' => 'secondary',
+            ]);
+        yield DateTimeField::new('joinedAt', 'Připojil se')
             ->setFormat('d.M.Y HH:mm');
     }
 
@@ -64,8 +61,10 @@ class BeerEntryCrudController extends AbstractCrudController
     {
         return $filters
             ->add(EntityFilter::new('user', 'Uživatel'))
-            ->add(EntityFilter::new('beer', 'Pivo'))
             ->add(EntityFilter::new('group', 'Skupina'))
-            ->add(DateTimeFilter::new('consumedAt', 'Datum'));
+            ->add(ChoiceFilter::new('role', 'Role')->setChoices([
+                'Admin' => 'admin',
+                'Člen' => 'member',
+            ]));
     }
 }
