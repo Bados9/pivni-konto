@@ -184,6 +184,40 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->beerEntries;
     }
 
+    public function getBeerEntriesCount(): int
+    {
+        return $this->beerEntries->count();
+    }
+
+    public function getTotalBeersConsumed(): int
+    {
+        $total = 0;
+        foreach ($this->beerEntries as $entry) {
+            $total += $entry->getQuantity();
+        }
+        return $total;
+    }
+
+    public function getGroupsCount(): int
+    {
+        return $this->groupMemberships->count();
+    }
+
+    public function getLastActivity(): ?\DateTimeImmutable
+    {
+        if ($this->beerEntries->isEmpty()) {
+            return null;
+        }
+
+        $latest = null;
+        foreach ($this->beerEntries as $entry) {
+            if ($latest === null || $entry->getConsumedAt() > $latest) {
+                $latest = $entry->getConsumedAt();
+            }
+        }
+        return $latest;
+    }
+
     public function __toString(): string
     {
         return $this->name;

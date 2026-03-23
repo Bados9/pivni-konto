@@ -145,6 +145,16 @@ class Group
         return $this->beerEntries;
     }
 
+    public function getMembersCount(): int
+    {
+        return $this->members->count();
+    }
+
+    public function getBeerEntriesCount(): int
+    {
+        return $this->beerEntries->count();
+    }
+
     public function __toString(): string
     {
         return $this->name;
