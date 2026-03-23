@@ -97,4 +97,9 @@ class GroupMember
     {
         return $this->joinedAt;
     }
+
+    public function __toString(): string
+    {
+        return $this->user->getName() . ' (' . $this->role . ')';
+    }
 }

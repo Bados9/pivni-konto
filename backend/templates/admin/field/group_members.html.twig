@@ -1,0 +1,24 @@
+{% if field.value is iterable %}
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Uživatel</th>
+                <th>Role</th>
+                <th>Připojil se</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in field.value %}
+            <tr>
+                <td>{{ member.user.name }}</td>
+                <td>
+                    <span class="badge text-bg-{{ member.role == 'admin' ? 'primary' : 'secondary' }}">
+                        {{ member.role == 'admin' ? 'Admin' : 'Člen' }}
+                    </span>
+                </td>
+                <td>{{ member.joinedAt|date('d.m.Y H:i') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

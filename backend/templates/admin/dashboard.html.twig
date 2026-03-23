@@ -1,0 +1,153 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content_header %}
+    <div class="content-header-title">
+        <h1 class="title">Dashboard</h1>
+    </div>
+{% endblock %}
+
+{% block main %}
+<div class="row">
+    <div class="col-sm-6 col-lg-3 mb-3">
+        <div class="card text-bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fs-5 fw-bold">{{ totalUsers }}</div>
+                        <div class="small">Uživatelů</div>
+                    </div>
+                    <i class="fa fa-users fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3 mb-3">
+        <div class="card text-bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fs-5 fw-bold">{{ totalEntries }}</div>
+                        <div class="small">Záznamů celkem</div>
+                    </div>
+                    <i class="fa fa-list fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3 mb-3">
+        <div class="card text-bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fs-5 fw-bold">{{ todayEntries }}</div>
+                        <div class="small">Dnes vypito</div>
+                    </div>
+                    <i class="fa fa-beer fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3 mb-3">
+        <div class="card text-bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fs-5 fw-bold">{{ pendingBeers }}</div>
+                        <div class="small">Čeká na schválení</div>
+                    </div>
+                    <i class="fa fa-clock fa-2x opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="fs-4 fw-bold">{{ totalBeers }}</div>
+                <div class="text-muted small">Piv v databázi</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="fs-4 fw-bold">{{ totalGroups }}</div>
+                <div class="text-muted small">Skupin</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa fa-trophy me-1"></i> Top 10 - Nejvíce piv
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Uživatel</th>
+                            <th class="text-end">Piv</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for drinker in topDrinkers %}
+                        <tr>
+                            <td>
+                                {% if loop.index == 1 %}
+                                    <span class="badge text-bg-warning">1.</span>
+                                {% elseif loop.index == 2 %}
+                                    <span class="badge text-bg-secondary">2.</span>
+                                {% elseif loop.index == 3 %}
+                                    <span class="badge text-bg-dark">3.</span>
+                                {% else %}
+                                    {{ loop.index }}.
+                                {% endif %}
+                            </td>
+                            <td>{{ drinker.name }}</td>
+                            <td class="text-end fw-bold">{{ drinker.totalBeers }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa fa-user-plus me-1"></i> Nejnovější uživatelé
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Jméno</th>
+                            <th>Email</th>
+                            <th>Registrace</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in recentUsers %}
+                        <tr>
+                            <td>{{ user.name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.createdAt|date('d.m.Y H:i') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

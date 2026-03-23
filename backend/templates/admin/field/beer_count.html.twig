@@ -1,0 +1,5 @@
+{% if field.value is not null %}
+    <span class="badge text-bg-{{ field.value > 100 ? 'danger' : (field.value > 50 ? 'warning' : (field.value > 10 ? 'info' : 'secondary')) }}">
+        {{ field.value }}
+    </span>
+{% endif %}
