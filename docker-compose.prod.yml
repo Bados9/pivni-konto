@@ -13,6 +13,10 @@ services:
       - ./certbot/www:/var/www/certbot:ro
     # To enable HTTPS, swap prod.conf for prod-ssl.conf after running setup-https.sh:
     # - ./docker/nginx/prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+    # Umožní nginxu dosáhnout na padel-app (běží ve své vlastní docker síti,
+    # bindovaný na host 127.0.0.1:3101). Viz prod-ssl.conf, location /padel/.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - php
     networks:
