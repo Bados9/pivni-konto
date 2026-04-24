@@ -6,17 +6,13 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./docker/nginx/prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./backend/public:/var/www/html/public:ro
       - frontend_build:/var/www/html/frontend:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-    # HTTP-only fallback (dokud nemáš cert): odkomentovat prod.conf, zakomentovat prod-ssl.conf.
-    # - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
-    # Dostupnost padel-app kontejneru přes host loopback (port 3101 bind na VPS).
-    # nginx resolvuje host.docker.internal při startu z /etc/hosts, ne z Docker DNS.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # To enable HTTPS, swap prod.conf for prod-ssl.conf after running setup-https.sh:
+    # - ./docker/nginx/prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - php
     networks:

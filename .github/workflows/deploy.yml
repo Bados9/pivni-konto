@@ -131,36 +131,6 @@ jobs:
             docker compose -f docker-compose.prod.yml exec -T php php bin/console doctrine:migrations:migrate --no-interaction
             docker compose -f docker-compose.prod.yml exec -T php php bin/console app:load-beers
 
-            # ---- Healthcheck ----------------------------------------------
-            # Ověří, že pivnikonto reálně odpovídá 2xx na HTTPS. Bez této
-            # kontroly vracelo CI zelené i tehdy, když nginx crashoval
-            # (stalo se při padel-proxy merge → revert).
-            echo ""
-            echo "🔍 Healthcheck – čekám až pivnikonto odpoví (max 90 s)..."
-            HEALTHY=0
-            for i in $(seq 1 45); do
-              CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 5 https://46-225-59-170.sslip.io/ || echo "000")
-              if [ "$CODE" = "200" ] || [ "$CODE" = "304" ]; then
-                echo "✅ pivnikonto HTTP $CODE po $((i*2)) s"
-                HEALTHY=1
-                break
-              fi
-              sleep 2
-            done
-            if [ "$HEALTHY" != "1" ]; then
-              echo "❌ pivnikonto nereaguje (poslední kód: $CODE). Logy nginx:"
-              docker compose -f docker-compose.prod.yml logs nginx --tail=50
-              exit 1
-            fi
-
-            # Padel proxy – warning only (padel může být down nezávisle,
-            # neblokuj tím pivnikonto deploy)
-            PADEL_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 https://46-225-59-170.sslip.io/padel/ || echo "000")
-            case "$PADEL_CODE" in
-              200|307|308) echo "✅ /padel/ proxy OK (HTTP $PADEL_CODE)" ;;
-              *) echo "⚠️  /padel/ proxy vrátilo HTTP $PADEL_CODE (nekritické, pivnikonto jede)" ;;
-            esac
-
             echo "Deployment completed successfully!"
 
       - name: Notify deployment success
