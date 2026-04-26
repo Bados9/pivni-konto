@@ -39,9 +39,18 @@ class UserCrudController extends AbstractCrudController
 
     public function configureActions(Actions $actions): Actions
     {
+        $setPassword = Action::new('setPassword', 'Heslo', 'fa fa-key')
+            ->linkToRoute(
+                'admin_user_set_password',
+                fn (User $user): array => ['entityId' => $user->getId()->toRfc4122()],
+            );
+
         return $actions
             ->disable(Action::NEW)
-            ->add(Crud::PAGE_INDEX, Action::DETAIL);
+            ->add(Crud::PAGE_INDEX, Action::DETAIL)
+            ->add(Crud::PAGE_INDEX, $setPassword)
+            ->add(Crud::PAGE_DETAIL, $setPassword)
+            ->add(Crud::PAGE_EDIT, $setPassword);
     }
 
     public function configureFields(string $pageName): iterable
