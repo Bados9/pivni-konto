@@ -13,6 +13,10 @@ services:
       - ./certbot/www:/var/www/certbot:ro
     # To enable HTTPS, swap prod.conf for prod-ssl.conf after running setup-https.sh:
     # - ./docker/nginx/prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+    # Dostupnost padel-app kontejneru přes host loopback (port 3101 bind na VPS).
+    # nginx resolvuje host.docker.internal při startu z /etc/hosts, ne z Docker DNS.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - php
     networks:
