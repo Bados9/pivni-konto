@@ -145,16 +145,14 @@ class BeerEntryRepositoryTest extends ApiTestCase
         $reflection->setValue($group, $createdAt);
     }
 
-    public function testTieIsBrokenByEarlierLastEntry(): void
+    public function testTieMeansNoAward(): void
     {
         $users = $this->createUsers(5);
         $group = $this->createGroupWithMembers($users);
 
-        // users 0 and 1 tie with 2 beers; user 0 finished drinking earlier
-        $this->createEntry($users[0], $this->dayStart->modify('+8 hours'));
-        $this->createEntry($users[0], $this->dayStart->modify('+13 hours'));
-        $this->createEntry($users[1], $this->dayStart->modify('+8 hours'));
-        $this->createEntry($users[1], $this->dayStart->modify('+15 hours'));
+        // users 0 and 1 tie with 2 beers each
+        $this->createEntry($users[0], $this->dayStart->modify('+8 hours'), 2);
+        $this->createEntry($users[1], $this->dayStart->modify('+9 hours'), 2);
 
         for ($i = 2; $i < 5; $i++) {
             $this->createEntry($users[$i], $this->dayStart->modify('+10 hours'));
@@ -163,7 +161,6 @@ class BeerEntryRepositoryTest extends ApiTestCase
 
         $awards = $this->repository->getGroupAwards($group, $this->dayStart, $this->dayEnd);
 
-        $this->assertArrayHasKey('drinker_of_day', $awards);
-        $this->assertSame('Drinker 0', $awards['drinker_of_day']['userName']);
+        $this->assertArrayNotHasKey('drinker_of_day', $awards);
     }
 }

@@ -375,8 +375,8 @@ class BeerEntryRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find the member with the highest score in the period.
-     * Ties are broken by who finished drinking earlier (earlier last entry wins).
+     * Find the member with the strictly highest score in the period.
+     * A tie for first place means nobody gets the title.
      *
      * @return array{userId: string, userName: string, value: float}|null
      */
@@ -388,8 +388,8 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         $scoreExpr = 'COALESCE(' . $this->getScoreExpression() . ', 0)';
 
-        $winner = $this->getEntityManager()->createQueryBuilder()
-            ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers, MAX(e.consumedAt) as HIDDEN lastEntryAt")
+        $top = $this->getEntityManager()->createQueryBuilder()
+            ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
             ->from('App\Entity\GroupMember', 'gm')
             ->innerJoin('gm.user', 'u')
             ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :start AND e.consumedAt < :end')
@@ -399,12 +399,16 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->setParameter('end', $end)
             ->groupBy('gm.user, u.name')
             ->orderBy('totalBeers', 'DESC')
-            ->addOrderBy('lastEntryAt', 'ASC')
-            ->setMaxResults(1)
+            ->setMaxResults(2)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getResult();
 
+        $winner = $top[0] ?? null;
         if ($winner === null || (float) $winner['totalBeers'] <= 0) {
+            return null;
+        }
+
+        if (isset($top[1]) && (float) $top[1]['totalBeers'] >= (float) $winner['totalBeers']) {
             return null;
         }
 
