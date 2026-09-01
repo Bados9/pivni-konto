@@ -300,6 +300,7 @@ class AchievementService
     {
         $stats = $this->calculateUserStats($user);
         $unlockedCounts = $this->achievementRepository->getUnlockedWithCounts($user);
+        $lastUnlockedDates = $this->achievementRepository->getLastUnlockedDates($user);
         $achievements = [];
 
         foreach ($this->achievementDefinitions as $id => $definition) {
@@ -317,6 +318,9 @@ class AchievementService
                 'unlocked' => $unlocked,
                 'repeatable' => $isRepeatable,
                 'timesUnlocked' => $timesUnlocked,
+                'unlockedAt' => isset($lastUnlockedDates[$id])
+                    ? $lastUnlockedDates[$id]->format(\DateTimeInterface::ATOM)
+                    : null,
                 'progress' => $progress['current'],
                 'target' => $progress['target'],
                 'percentage' => $progress['target'] > 0
@@ -339,13 +343,14 @@ class AchievementService
     public function getAchievementsSummary(User $user): array
     {
         $all = $this->getUserAchievements($user);
-        $unlocked = array_filter($all, fn($a) => $a['unlocked']);
+        $unlocked = array_values(array_filter($all, fn($a) => $a['unlocked']));
+        usort($unlocked, fn($a, $b) => ($b['unlockedAt'] ?? '') <=> ($a['unlockedAt'] ?? ''));
 
         return [
             'total' => count($all),
             'unlocked' => count($unlocked),
             'percentage' => round((count($unlocked) / count($all)) * 100),
-            'recent' => array_slice(array_values($unlocked), 0, 3),
+            'recent' => array_slice($unlocked, 0, 3),
         ];
     }
 

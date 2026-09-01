@@ -3,20 +3,16 @@
 namespace App\Service;
 
 use App\Entity\Group;
+use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Repository\BeerEntryRepository;
 use App\Repository\GroupRepository;
 use App\Repository\UserAchievementRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 class GroupAchievementService
 {
-    private const ACHIEVEMENT_DEFINITIONS = [
-        'drinker_of_day' => ['icon' => "\u{1F37A}", 'label' => 'Pijan dne'],
-        'drinker_of_week' => ['icon' => "\u{1F3C6}", 'label' => 'Pijan týdne'],
-        'drinker_of_month' => ['icon' => "\u{1F31F}", 'label' => 'Pijan měsíce'],
-    ];
-
     public function __construct(
         private BeerEntryRepository $entryRepository,
         private UserAchievementRepository $achievementRepository,
@@ -77,7 +73,7 @@ class GroupAchievementService
         $saved = 0;
 
         foreach ($awards as $type => $awardData) {
-            $user = $this->em->getReference('App\Entity\User', $awardData['userId']);
+            $user = $this->em->getReference(User::class, Uuid::fromString($awardData['userId']));
 
             if ($this->achievementRepository->hasAchievementOnDate($user, $type, $forDate)) {
                 continue;
@@ -93,10 +89,5 @@ class GroupAchievementService
         }
 
         return $saved;
-    }
-
-    public static function getAchievementDefinitions(): array
-    {
-        return self::ACHIEVEMENT_DEFINITIONS;
     }
 }
