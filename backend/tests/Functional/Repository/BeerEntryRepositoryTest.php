@@ -31,6 +31,8 @@ class BeerEntryRepositoryTest extends ApiTestCase
         $group = new Group();
         $group->setName('Award Group');
         $group->setCreatedBy($users[0]);
+        // tests use fixed past dates - the group must predate them
+        $this->setGroupCreatedAt($group, new \DateTimeImmutable('2026-01-01 12:00'));
         $this->entityManager->persist($group);
 
         foreach ($users as $index => $user) {
