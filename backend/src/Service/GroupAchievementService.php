@@ -19,6 +19,7 @@ class GroupAchievementService
         private GroupRepository $groupRepository,
         private EntityManagerInterface $em,
         private DrinkingDayService $drinkingDayService,
+        private GroupAwardNotifier $awardNotifier,
     ) {
     }
 
@@ -27,14 +28,17 @@ class GroupAchievementService
      * Daily (drinker_of_day) runs every day.
      * Weekly (drinker_of_week) runs when forDate is Sunday (end of drinking week).
      * Monthly (drinker_of_month) runs when forDate is the last day of the month.
+     *
+     * With $notify the winner gets an in-app notification and a web push
+     * (disable for backfills to avoid flooding users with historic awards).
      */
-    public function evaluateGroupAchievements(\DateTimeImmutable $forDate): int
+    public function evaluateGroupAchievements(\DateTimeImmutable $forDate, bool $notify = true): int
     {
         $groups = $this->groupRepository->findAll();
         $totalSaved = 0;
 
         foreach ($groups as $group) {
-            $totalSaved += $this->evaluateGroup($group, $forDate);
+            $totalSaved += $this->evaluateGroup($group, $forDate, $notify);
         }
 
         $this->em->flush();
@@ -42,7 +46,7 @@ class GroupAchievementService
         return $totalSaved;
     }
 
-    private function evaluateGroup(Group $group, \DateTimeImmutable $forDate): int
+    private function evaluateGroup(Group $group, \DateTimeImmutable $forDate, bool $notify): int
     {
         $dayStart = $this->drinkingDayService->getDrinkingDayStart($forDate->setTime(12, 0));
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd($forDate->setTime(12, 0));
@@ -86,6 +90,10 @@ class GroupAchievementService
 
             $this->em->persist($achievement);
             $saved++;
+
+            if ($notify) {
+                $this->awardNotifier->notifyWinner($user, $group, $type, $forDate);
+            }
         }
 
         return $saved;

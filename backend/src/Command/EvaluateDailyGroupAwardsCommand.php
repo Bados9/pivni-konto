@@ -27,6 +27,7 @@ class EvaluateDailyGroupAwardsCommand extends Command
         $this->addOption('date', 'd', InputOption::VALUE_OPTIONAL, 'Specific date to evaluate (Y-m-d format, defaults to yesterday)');
         $this->addOption('from', null, InputOption::VALUE_REQUIRED, 'Backfill start date (Y-m-d, inclusive)');
         $this->addOption('to', null, InputOption::VALUE_REQUIRED, 'Backfill end date (Y-m-d, inclusive, defaults to yesterday)');
+        $this->addOption('no-notifications', null, InputOption::VALUE_NONE, 'Do not notify winners (use for backfills)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -38,10 +39,11 @@ class EvaluateDailyGroupAwardsCommand extends Command
             return Command::FAILURE;
         }
 
+        $notify = !$input->getOption('no-notifications');
         $totalSaved = 0;
 
         foreach ($dates as $forDate) {
-            $saved = $this->groupAchievementService->evaluateGroupAchievements($forDate);
+            $saved = $this->groupAchievementService->evaluateGroupAchievements($forDate, $notify);
             $totalSaved += $saved;
             $io->writeln(sprintf('%s: saved %d group achievements', $forDate->format('Y-m-d'), $saved));
         }
