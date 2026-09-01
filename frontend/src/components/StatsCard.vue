@@ -24,6 +24,6 @@ function formatValue(val) {
   </div>
   <div v-else class="bg-gray-800 rounded-xl p-2.5 shadow-lg min-w-0">
     <p class="text-gray-400 text-xs truncate">{{ title }}</p>
-    <p class="text-lg font-bold text-white mt-0.5 truncate">{{ formatValue(value) }}</p>
+    <p class="text-lg font-bold text-white mt-0.5 break-words">{{ formatValue(value) }}</p>
   </div>
 </template>
