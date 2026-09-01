@@ -221,6 +221,10 @@ class ApiService {
   getAchievementsSummary() {
     return this.get('/achievements/summary')
   }
+
+  getUserAchievements(userId) {
+    return this.get(`/achievements/user/${userId}`)
+  }
 }
 
 export const api = new ApiService()
