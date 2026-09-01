@@ -55,7 +55,7 @@ class AchievementServiceTest extends TestCase
             'unique_beers' => 0,
             'unique_breweries' => 0,
             'early_bird_days' => 0,
-            'new_year_days' => 0,
+            'czech_beer_days' => 0,
             'tasting_days' => 0,
             'max_daily_variety' => 0,
             'max_weekend_beers' => 0,
@@ -190,14 +190,14 @@ class AchievementServiceTest extends TestCase
         $this->assertEquals(5, $earlyBird[0]['timesUnlocked']);
     }
 
-    public function testTasterAndNewYearAchievements(): void
+    public function testTasterAndCzechBeerDayAchievements(): void
     {
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
         $stats['tasting_days'] = 1;
         $stats['max_daily_variety'] = 5;
-        $stats['new_year_days'] = 1;
+        $stats['czech_beer_days'] = 1;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -207,7 +207,7 @@ class AchievementServiceTest extends TestCase
 
         $ids = array_column($result, 'id');
         $this->assertContains('taster_day', $ids);
-        $this->assertContains('new_year', $ids);
+        $this->assertContains('czech_beer_day', $ids);
     }
 
     public function testWeekendWarriorRequiresSingleWeekend(): void

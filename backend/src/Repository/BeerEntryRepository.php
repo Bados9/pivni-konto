@@ -498,7 +498,7 @@ class BeerEntryRepository extends ServiceEntityRepository
         // Calculate time-based stats in PHP using drinking day logic
         $weekendScores = [];
         $earlyBirdDays = [];
-        $newYearDays = [];
+        $czechBeerDays = [];
         $dailyCounts = [];
         $dailyBeerVariety = [];
 
@@ -527,9 +527,9 @@ class BeerEntryRepository extends ServiceEntityRepository
                 $earlyBirdDays[$drinkingDate] = true;
             }
 
-            // New Year's Eve, counted per year
-            if (str_ends_with($drinkingDate, '-12-31')) {
-                $newYearDays[substr($drinkingDate, 0, 4)] = true;
+            // Czech Beer Day (Sep 27), counted per year
+            if (str_ends_with($drinkingDate, '-09-27')) {
+                $czechBeerDays[substr($drinkingDate, 0, 4)] = true;
             }
 
             // Distinct beers per drinking day
@@ -604,7 +604,7 @@ class BeerEntryRepository extends ServiceEntityRepository
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
             'early_bird_days' => count($earlyBirdDays),
-            'new_year_days' => count($newYearDays),
+            'czech_beer_days' => count($czechBeerDays),
             'tasting_days' => $tastingDays,
             'max_daily_variety' => $maxDailyVariety,
             'days_with_10_beers' => $daysWith10Beers,
