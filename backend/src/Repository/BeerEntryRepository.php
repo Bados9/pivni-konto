@@ -485,7 +485,7 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         // Fetch all entries for time-based calculations (weekend, daily, early/night)
         $allEntries = $this->createQueryBuilder('e')
-            ->select('e.consumedAt, e.quantity, e.volumeMl')
+            ->select('e.consumedAt, e.quantity, e.volumeMl, IDENTITY(e.beer) as beerId, e.customBeerName')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
@@ -493,8 +493,11 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         // Calculate time-based stats in PHP using drinking day logic
         $weekendBeers = 0;
-        $earlyBird = false;
+        $earlyBirdDays = [];
+        $nightOwlDays = [];
+        $newYearDays = [];
         $dailyCounts = [];
+        $dailyBeerVariety = [];
 
         foreach ($allEntries as $entry) {
             $consumedAt = $entry['consumedAt'];
@@ -513,13 +516,37 @@ class BeerEntryRepository extends ServiceEntityRepository
                 $weekendBeers += $score;
             }
 
-            // Early bird (between 5:00 and 10:00)
+            // Early bird (between 5:00 and 10:00), counted per drinking day
             if ($hour >= 5 && $hour < 10) {
-                $earlyBird = true;
+                $earlyBirdDays[$drinkingDate] = true;
             }
+
+            // Night owl (between 22:00 and 2:00), counted per drinking day
+            if ($hour >= 22 || $hour < 2) {
+                $nightOwlDays[$drinkingDate] = true;
+            }
+
+            // New Year's Eve, counted per year
+            if (str_ends_with($drinkingDate, '-12-31')) {
+                $newYearDays[substr($drinkingDate, 0, 4)] = true;
+            }
+
+            // Distinct beers per drinking day
+            $beerKey = $entry['beerId'] ?? 'custom:' . ($entry['customBeerName'] ?? '');
+            $dailyBeerVariety[$drinkingDate][$beerKey] = true;
 
             // Daily counts using drinking date
             $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $score;
+        }
+
+        $maxDailyVariety = 0;
+        $tastingDays = 0;
+        foreach ($dailyBeerVariety as $beersOfDay) {
+            $variety = count($beersOfDay);
+            $maxDailyVariety = max($maxDailyVariety, $variety);
+            if ($variety >= 5) {
+                $tastingDays++;
+            }
         }
 
         // Calculate max daily, consecutive days and days with X+ beers from daily counts
@@ -575,7 +602,11 @@ class BeerEntryRepository extends ServiceEntityRepository
             'max_loyal' => (float) ($maxLoyal['count'] ?? 0),
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
-            'early_bird' => $earlyBird,
+            'early_bird_days' => count($earlyBirdDays),
+            'night_owl_days' => count($nightOwlDays),
+            'new_year_days' => count($newYearDays),
+            'tasting_days' => $tastingDays,
+            'max_daily_variety' => $maxDailyVariety,
             'days_with_10_beers' => $daysWith10Beers,
             'days_with_15_beers' => $daysWith15Beers,
         ];
