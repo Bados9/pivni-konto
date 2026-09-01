@@ -357,6 +357,12 @@ class BeerEntryRepository extends ServiceEntityRepository
                 continue;
             }
 
+            // Only beers drunk after the group was founded count towards its awards
+            $start = max($start, $group->getCreatedAt());
+            if ($start >= $end) {
+                continue;
+            }
+
             $winner = $this->findGroupPeriodWinner($group, $start, $end);
             if ($winner === null) {
                 continue;
