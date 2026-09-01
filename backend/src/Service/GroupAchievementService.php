@@ -3,26 +3,23 @@
 namespace App\Service;
 
 use App\Entity\Group;
+use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Repository\BeerEntryRepository;
 use App\Repository\GroupRepository;
 use App\Repository\UserAchievementRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 class GroupAchievementService
 {
-    private const ACHIEVEMENT_DEFINITIONS = [
-        'drinker_of_day' => ['icon' => "\u{1F37A}", 'label' => 'Pijan dne'],
-        'drinker_of_week' => ['icon' => "\u{1F3C6}", 'label' => 'Pijan týdne'],
-        'drinker_of_month' => ['icon' => "\u{1F31F}", 'label' => 'Pijan měsíce'],
-    ];
-
     public function __construct(
         private BeerEntryRepository $entryRepository,
         private UserAchievementRepository $achievementRepository,
         private GroupRepository $groupRepository,
         private EntityManagerInterface $em,
         private DrinkingDayService $drinkingDayService,
+        private GroupAwardNotifier $awardNotifier,
     ) {
     }
 
@@ -31,14 +28,17 @@ class GroupAchievementService
      * Daily (drinker_of_day) runs every day.
      * Weekly (drinker_of_week) runs when forDate is Sunday (end of drinking week).
      * Monthly (drinker_of_month) runs when forDate is the last day of the month.
+     *
+     * With $notify the winner gets an in-app notification and a web push
+     * (disable for backfills to avoid flooding users with historic awards).
      */
-    public function evaluateGroupAchievements(\DateTimeImmutable $forDate): int
+    public function evaluateGroupAchievements(\DateTimeImmutable $forDate, bool $notify = true): int
     {
         $groups = $this->groupRepository->findAll();
         $totalSaved = 0;
 
         foreach ($groups as $group) {
-            $totalSaved += $this->evaluateGroup($group, $forDate);
+            $totalSaved += $this->evaluateGroup($group, $forDate, $notify);
         }
 
         $this->em->flush();
@@ -46,7 +46,7 @@ class GroupAchievementService
         return $totalSaved;
     }
 
-    private function evaluateGroup(Group $group, \DateTimeImmutable $forDate): int
+    private function evaluateGroup(Group $group, \DateTimeImmutable $forDate, bool $notify): int
     {
         $dayStart = $this->drinkingDayService->getDrinkingDayStart($forDate->setTime(12, 0));
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd($forDate->setTime(12, 0));
@@ -77,7 +77,7 @@ class GroupAchievementService
         $saved = 0;
 
         foreach ($awards as $type => $awardData) {
-            $user = $this->em->getReference('App\Entity\User', $awardData['userId']);
+            $user = $this->em->getReference(User::class, Uuid::fromString($awardData['userId']));
 
             if ($this->achievementRepository->hasAchievementOnDate($user, $type, $forDate)) {
                 continue;
@@ -90,13 +90,12 @@ class GroupAchievementService
 
             $this->em->persist($achievement);
             $saved++;
+
+            if ($notify) {
+                $this->awardNotifier->notifyWinner($user, $group, $type, $forDate);
+            }
         }
 
         return $saved;
-    }
-
-    public static function getAchievementDefinitions(): array
-    {
-        return self::ACHIEVEMENT_DEFINITIONS;
     }
 }

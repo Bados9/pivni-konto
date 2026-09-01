@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
 import StatsCard from '../components/StatsCard.vue'
+import AchievementsPanel from '../components/AchievementsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
 const stats = ref(null)
+const achievements = ref(null)
 const loading = ref(true)
 const error = ref('')
 
@@ -62,12 +64,22 @@ async function fetchUserStats() {
 
   try {
     stats.value = await api.getUserStats(userId)
+    await fetchUserAchievements(userId)
   } catch (err) {
     error.value = err.message
     stats.value = null
   }
 
   loading.value = false
+}
+
+async function fetchUserAchievements(userId) {
+  try {
+    achievements.value = await api.getUserAchievements(userId)
+  } catch (err) {
+    console.error('Failed to fetch user achievements:', err)
+    achievements.value = null
+  }
 }
 
 watch(() => route.params.userId, fetchUserStats)
@@ -107,7 +119,7 @@ onMounted(fetchUserStats)
 
       <!-- Period stats -->
       <section class="mb-6">
-        <div class="grid grid-cols-5 gap-2">
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
           <StatsCard title="Dnes" :value="stats.today" />
           <StatsCard title="Týden" :value="stats.thisWeek" />
           <StatsCard title="Měsíc" :value="stats.thisMonth" />
@@ -162,7 +174,7 @@ onMounted(fetchUserStats)
       </section>
 
       <!-- Top beers and breweries -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2">
         <section>
           <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Top piva</h2>
           <div class="card space-y-2">
@@ -197,6 +209,9 @@ onMounted(fetchUserStats)
           </div>
         </section>
       </div>
+
+      <!-- Achievements -->
+      <AchievementsPanel v-if="achievements" :achievements="achievements" highlight="top" />
     </template>
   </div>
 </template>

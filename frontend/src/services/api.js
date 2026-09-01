@@ -200,6 +200,19 @@ class ApiService {
     return this.post('/beers/suggest', { name })
   }
 
+  // Notifications
+  getNotifications(limit = 20) {
+    return this.get(`/notifications?limit=${limit}`)
+  }
+
+  getUnreadNotificationsCount() {
+    return this.get('/notifications/unread-count')
+  }
+
+  markAllNotificationsRead() {
+    return this.post('/notifications/read-all', {})
+  }
+
   // Achievements
   getMyAchievements() {
     return this.get('/achievements/me')
@@ -207,6 +220,10 @@ class ApiService {
 
   getAchievementsSummary() {
     return this.get('/achievements/summary')
+  }
+
+  getUserAchievements(userId) {
+    return this.get(`/achievements/user/${userId}`)
   }
 }
 

@@ -54,8 +54,11 @@ class AchievementServiceTest extends TestCase
             'total_volume_ml' => 0,
             'unique_beers' => 0,
             'unique_breweries' => 0,
-            'early_bird' => false,
-            'weekend_beers' => 0,
+            'early_bird_days' => 0,
+            'czech_beer_days' => 0,
+            'tasting_days' => 0,
+            'max_daily_variety' => 0,
+            'max_weekend_beers' => 0,
             'small_beers' => 0,
             'max_daily' => 0,
             'max_loyal' => 0,
@@ -149,8 +152,8 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['early_bird'] = true;
-        $stats['weekend_beers'] = 30;
+        $stats['early_bird_days'] = 1;
+        $stats['max_weekend_beers'] = 25;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
         $this->memberRepository->method('findBy')->willReturn([]);
@@ -162,6 +165,90 @@ class AchievementServiceTest extends TestCase
         $this->assertContains('early_bird', $ids);
         $this->assertContains('weekend_warrior', $ids);
     }
+
+    public function testEarlyBirdIsRepeatablePerDay(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['early_bird_days'] = 5;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
+            'early_bird' => 2,
+            'first_beer' => 1,
+        ]);
+
+        // 3 new rows (5-2) persisted
+        $this->entityManager->expects($this->exactly(3))->method('persist');
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $earlyBird = array_values(array_filter($result, fn($a) => $a['id'] === 'early_bird'));
+        $this->assertCount(1, $earlyBird);
+        $this->assertEquals(5, $earlyBird[0]['timesUnlocked']);
+    }
+
+    public function testTasterAndCzechBeerDayAchievements(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['tasting_days'] = 1;
+        $stats['max_daily_variety'] = 5;
+        $stats['czech_beer_days'] = 1;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $ids = array_column($result, 'id');
+        $this->assertContains('taster_day', $ids);
+        $this->assertContains('czech_beer_day', $ids);
+    }
+
+    public function testMilestoneAndVolumeTopTiers(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 5000;
+        $stats['total_volume_ml'] = 250000;
+        $stats['unique_breweries'] = 20;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $ids = array_column($result, 'id');
+        $this->assertContains('beer_5000', $ids);
+        $this->assertNotContains('beer_10000', $ids);
+        $this->assertContains('volume_250l', $ids);
+        $this->assertNotContains('volume_500l', $ids);
+        $this->assertContains('breweries_20', $ids);
+        $this->assertNotContains('breweries_50', $ids);
+    }
+
+    public function testWeekendWarriorRequiresSingleWeekend(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['max_weekend_beers'] = 24;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $this->assertNotContains('weekend_warrior', array_column($result, 'id'));
+    }
+
 
     public function testDailyRepeatableAchievement(): void
     {
@@ -311,7 +398,7 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(26, $result['total']);
+        $this->assertEquals(38, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 

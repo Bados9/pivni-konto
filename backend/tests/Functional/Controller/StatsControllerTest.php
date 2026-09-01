@@ -230,6 +230,48 @@ class StatsControllerTest extends ApiTestCase
         $this->assertEquals('week', $data['period']); // default period
     }
 
+    public function testLeaderboardExcludesBeersDrunkBeforeGroupCreation(): void
+    {
+        $user = $this->createUser();
+
+        $group = new Group();
+        $group->setName('Fresh Group');
+        $group->setCreatedBy($user);
+        $this->entityManager->persist($group);
+
+        $member = new GroupMember();
+        $member->setUser($user);
+        $member->setGroup($group);
+        $member->setRole('admin');
+        $this->entityManager->persist($member);
+
+        // drunk long before the group existed
+        $oldEntry = new BeerEntry();
+        $oldEntry->setUser($user);
+        $oldEntry->setVolumeMl(500);
+        $oldEntry->setQuantity(1);
+        $oldEntry->setConsumedAt(new \DateTimeImmutable('-10 days'));
+        $this->entityManager->persist($oldEntry);
+
+        $newEntry = new BeerEntry();
+        $newEntry->setUser($user);
+        $newEntry->setVolumeMl(500);
+        $newEntry->setQuantity(1);
+        $newEntry->setConsumedAt(new \DateTimeImmutable('+1 minute'));
+        $this->entityManager->persist($newEntry);
+        $this->entityManager->flush();
+
+        $this->loginAs($user);
+
+        $this->apiRequest('GET', '/api/stats/leaderboard/' . $group->getId()->toRfc4122() . '?period=year');
+
+        $this->assertResponseStatusCodeSame(200);
+
+        $data = $this->getResponseData();
+        $this->assertCount(1, $data['leaderboard']);
+        $this->assertEquals(1, $data['leaderboard'][0]['totalBeers']);
+    }
+
     public function testLeaderboardPeriodParameter(): void
     {
         $user = $this->createUser();

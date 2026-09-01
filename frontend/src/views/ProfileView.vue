@@ -1,19 +1,18 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useGroupsStore } from '../stores/groups'
 import { api } from '../services/api'
 import { pushService } from '../services/push'
 import BeerSelect from '../components/BeerSelect.vue'
+import AchievementsPanel from '../components/AchievementsPanel.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 const groups = useGroupsStore()
 
-const achievements = ref({ summary: null, grouped: {} })
-const showAllAchievements = ref(false)
-const selectedCategory = ref('all')
+const achievements = ref({ summary: null, achievements: [], grouped: {} })
 
 const beers = ref([])
 const defaultBeerId = ref(auth.user?.defaultBeerId || null)
@@ -53,30 +52,6 @@ async function saveName() {
 
   editingName.value = false
 }
-
-const categoryNames = {
-  milestones: '🎯 Milníky',
-  volume: '🍺 Objem',
-  variety: '🔍 Rozmanitost',
-  time: '⏰ Čas',
-  performance: '💪 Výkony',
-  special: '✨ Speciální',
-}
-
-const filteredAchievements = computed(() => {
-  if (selectedCategory.value === 'all') {
-    return Object.values(achievements.value.grouped).flat()
-  }
-  return achievements.value.grouped[selectedCategory.value] || []
-})
-
-const unlockedCount = computed(() => {
-  return achievements.value.summary?.unlocked || 0
-})
-
-const totalCount = computed(() => {
-  return achievements.value.summary?.total || 0
-})
 
 function logout() {
   auth.logout()
@@ -291,125 +266,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Achievements summary -->
-    <div class="card mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-semibold flex items-center gap-2">
-          <span>🏆</span>
-          <span>Achievementy</span>
-        </h3>
-        <button
-          @click="showAllAchievements = !showAllAchievements"
-          class="text-beer-500 text-sm hover:underline"
-        >
-          {{ showAllAchievements ? 'Skrýt' : 'Zobrazit vše' }}
-        </button>
-      </div>
-
-      <!-- Progress bar -->
-      <div v-if="achievements.summary" class="mb-4">
-        <div class="flex items-center justify-between text-sm mb-2">
-          <span class="text-gray-400">Odemčeno</span>
-          <span class="font-medium">{{ unlockedCount }} / {{ totalCount }}</span>
-        </div>
-        <div class="h-3 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            class="h-full bg-gradient-to-r from-beer-600 to-yellow-400 rounded-full transition-all duration-500"
-            :style="{ width: `${achievements.summary.percentage}%` }"
-          ></div>
-        </div>
-      </div>
-
-      <!-- Recent achievements -->
-      <div v-if="!showAllAchievements && achievements.summary?.recent?.length > 0" class="space-y-2">
-        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Poslední odemčené</p>
-        <div
-          v-for="achievement in achievements.summary.recent"
-          :key="achievement.id"
-          class="flex items-center gap-3 py-2 px-3 bg-gray-700/50 rounded-lg"
-        >
-          <span class="text-2xl">{{ achievement.icon }}</span>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <p class="font-medium text-sm truncate">{{ achievement.name }}</p>
-              <span v-if="achievement.timesUnlocked > 1" class="text-xs bg-beer-600 text-white px-1.5 py-0.5 rounded-full font-medium">
-                {{ achievement.timesUnlocked }}×
-              </span>
-            </div>
-            <p class="text-xs text-gray-400 truncate">{{ achievement.description }}</p>
-          </div>
-          <span class="text-green-500">✓</span>
-        </div>
-      </div>
-
-      <!-- No achievements yet -->
-      <div v-if="!showAllAchievements && (!achievements.summary?.recent || achievements.summary.recent.length === 0)" class="text-center py-4">
-        <p class="text-4xl mb-2">🎯</p>
-        <p class="text-gray-400 text-sm">Zatím žádné achievementy</p>
-        <p class="text-gray-500 text-xs">Začni přidávat piva!</p>
-      </div>
-    </div>
-
-    <!-- All achievements (expanded) -->
-    <div v-if="showAllAchievements" class="card mb-6">
-      <!-- Category filter -->
-      <div class="flex flex-wrap gap-2 mb-4 pb-4 border-b border-gray-700">
-        <button
-          @click="selectedCategory = 'all'"
-          class="px-3 py-1.5 text-xs font-medium rounded-full transition-colors"
-          :class="selectedCategory === 'all'
-            ? 'bg-beer-500 text-white'
-            : 'bg-gray-700 text-gray-400 hover:text-white'"
-        >
-          Vše
-        </button>
-        <button
-          v-for="(name, key) in categoryNames"
-          :key="key"
-          @click="selectedCategory = key"
-          class="px-3 py-1.5 text-xs font-medium rounded-full transition-colors"
-          :class="selectedCategory === key
-            ? 'bg-beer-500 text-white'
-            : 'bg-gray-700 text-gray-400 hover:text-white'"
-        >
-          {{ name }}
-        </button>
-      </div>
-
-      <!-- Achievement list -->
-      <div class="space-y-3">
-        <div
-          v-for="achievement in filteredAchievements"
-          :key="achievement.id"
-          class="flex items-center gap-3 py-3 px-3 rounded-lg transition-colors"
-          :class="achievement.unlocked ? 'bg-gray-700/50' : 'bg-gray-800/50 opacity-60'"
-        >
-          <span class="text-3xl" :class="{ 'grayscale': !achievement.unlocked }">
-            {{ achievement.icon }}
-          </span>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <p class="font-medium text-sm">{{ achievement.name }}</p>
-              <span v-if="achievement.unlocked && achievement.timesUnlocked > 1" class="text-xs bg-beer-600 text-white px-1.5 py-0.5 rounded-full font-medium">
-                {{ achievement.timesUnlocked }}×
-              </span>
-              <span v-if="achievement.unlocked" class="text-green-500 text-xs">✓</span>
-            </div>
-            <p class="text-xs text-gray-400 mb-1">{{ achievement.description }}</p>
-            <!-- Progress bar for locked achievements -->
-            <div v-if="!achievement.unlocked && achievement.target > 1" class="flex items-center gap-2">
-              <div class="flex-1 h-1.5 bg-gray-600 rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-beer-500/50 rounded-full"
-                  :style="{ width: `${achievement.percentage}%` }"
-                ></div>
-              </div>
-              <span class="text-xs text-gray-500">{{ achievement.progress }}/{{ achievement.target }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Achievements -->
+    <AchievementsPanel :achievements="achievements" highlight="recent" />
 
     <!-- Groups section -->
     <div class="card mb-6">

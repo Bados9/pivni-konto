@@ -20,6 +20,11 @@ class BeerEntryRepository extends ServiceEntityRepository
      */
     private const SMALL_BEER_THRESHOLD = 330;
 
+    /**
+     * Minimum members with entries in a period for a group award to be granted.
+     */
+    private const MIN_ACTIVE_DRINKERS = 5;
+
     public function __construct(
         ManagerRegistry $registry,
         private DrinkingDayService $drinkingDayService,
@@ -327,7 +332,7 @@ class BeerEntryRepository extends ServiceEntityRepository
      * Get group awards for specified periods.
      * Returns award type => [userId, userName, value] for each award.
      *
-     * drinker_of_day requires at least 5 active drinkers in the group.
+     * Every award requires at least MIN_ACTIVE_DRINKERS members with entries in its period.
      * drinker_of_week and drinker_of_month are only evaluated when their boundaries are provided.
      */
     public function getGroupAwards(
@@ -339,101 +344,93 @@ class BeerEntryRepository extends ServiceEntityRepository
         ?\DateTimeImmutable $monthStart = null,
         ?\DateTimeImmutable $monthEnd = null,
     ): array {
-        $em = $this->getEntityManager();
+        $periods = [
+            'drinker_of_day' => [$dayStart, $dayEnd],
+            'drinker_of_week' => [$weekStart, $weekEnd],
+            'drinker_of_month' => [$monthStart, $monthEnd],
+        ];
+
         $awards = [];
 
-        $scoreExpr = "COALESCE(SUM(CASE WHEN e.volumeMl <= " . self::SMALL_BEER_THRESHOLD . " THEN e.quantity * 0.5 ELSE e.quantity * 1.0 END), 0)";
-
-        // Drinker of the day: most beers today (min 5 active drinkers required)
-        $activeDrinkers = (int) $em->createQueryBuilder()
-            ->select('COUNT(DISTINCT IDENTITY(gm.user))')
-            ->from('App\Entity\GroupMember', 'gm')
-            ->innerJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = gm.user AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
-            ->where('gm.group = :group')
-            ->setParameter('group', $group)
-            ->setParameter('dayStart', $dayStart)
-            ->setParameter('dayEnd', $dayEnd)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        if ($activeDrinkers >= 5) {
-            $drinkerOfDay = $em->createQueryBuilder()
-                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
-                ->from('App\Entity\GroupMember', 'gm')
-                ->innerJoin('gm.user', 'u')
-                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :dayStart AND e.consumedAt < :dayEnd')
-                ->where('gm.group = :group')
-                ->setParameter('group', $group)
-                ->setParameter('dayStart', $dayStart)
-                ->setParameter('dayEnd', $dayEnd)
-                ->groupBy('gm.user, u.name')
-                ->orderBy('totalBeers', 'DESC')
-                ->setMaxResults(1)
-                ->getQuery()
-                ->getOneOrNullResult();
-
-            if ($drinkerOfDay !== null && (float) $drinkerOfDay['totalBeers'] > 0) {
-                $awards['drinker_of_day'] = [
-                    'userId' => $drinkerOfDay['userId'],
-                    'userName' => $drinkerOfDay['userName'],
-                    'value' => (float) $drinkerOfDay['totalBeers'],
-                ];
+        foreach ($periods as $type => [$start, $end]) {
+            if ($start === null || $end === null) {
+                continue;
             }
-        }
 
-        // Drinker of the week
-        if ($weekStart !== null && $weekEnd !== null) {
-            $drinkerOfWeek = $em->createQueryBuilder()
-                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
-                ->from('App\Entity\GroupMember', 'gm')
-                ->innerJoin('gm.user', 'u')
-                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :weekStart AND e.consumedAt < :weekEnd')
-                ->where('gm.group = :group')
-                ->setParameter('group', $group)
-                ->setParameter('weekStart', $weekStart)
-                ->setParameter('weekEnd', $weekEnd)
-                ->groupBy('gm.user, u.name')
-                ->orderBy('totalBeers', 'DESC')
-                ->setMaxResults(1)
-                ->getQuery()
-                ->getOneOrNullResult();
-
-            if ($drinkerOfWeek !== null && (float) $drinkerOfWeek['totalBeers'] > 0) {
-                $awards['drinker_of_week'] = [
-                    'userId' => $drinkerOfWeek['userId'],
-                    'userName' => $drinkerOfWeek['userName'],
-                    'value' => (float) $drinkerOfWeek['totalBeers'],
-                ];
+            // Only beers drunk after the group was founded count towards its awards
+            $start = max($start, $group->getCreatedAt());
+            if ($start >= $end) {
+                continue;
             }
-        }
 
-        // Drinker of the month
-        if ($monthStart !== null && $monthEnd !== null) {
-            $drinkerOfMonth = $em->createQueryBuilder()
-                ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
-                ->from('App\Entity\GroupMember', 'gm')
-                ->innerJoin('gm.user', 'u')
-                ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :monthStart AND e.consumedAt < :monthEnd')
-                ->where('gm.group = :group')
-                ->setParameter('group', $group)
-                ->setParameter('monthStart', $monthStart)
-                ->setParameter('monthEnd', $monthEnd)
-                ->groupBy('gm.user, u.name')
-                ->orderBy('totalBeers', 'DESC')
-                ->setMaxResults(1)
-                ->getQuery()
-                ->getOneOrNullResult();
-
-            if ($drinkerOfMonth !== null && (float) $drinkerOfMonth['totalBeers'] > 0) {
-                $awards['drinker_of_month'] = [
-                    'userId' => $drinkerOfMonth['userId'],
-                    'userName' => $drinkerOfMonth['userName'],
-                    'value' => (float) $drinkerOfMonth['totalBeers'],
-                ];
+            $winner = $this->findGroupPeriodWinner($group, $start, $end);
+            if ($winner === null) {
+                continue;
             }
+
+            $awards[$type] = $winner;
         }
 
         return $awards;
+    }
+
+    /**
+     * Find the member with the strictly highest score in the period.
+     * A tie for first place means nobody gets the title.
+     *
+     * @return array{userId: string, userName: string, value: float}|null
+     */
+    private function findGroupPeriodWinner(Group $group, \DateTimeImmutable $start, \DateTimeImmutable $end): ?array
+    {
+        if ($this->countActiveDrinkers($group, $start, $end) < self::MIN_ACTIVE_DRINKERS) {
+            return null;
+        }
+
+        $scoreExpr = 'COALESCE(' . $this->getScoreExpression() . ', 0)';
+
+        $top = $this->getEntityManager()->createQueryBuilder()
+            ->select("IDENTITY(gm.user) as userId, u.name as userName, {$scoreExpr} as totalBeers")
+            ->from('App\Entity\GroupMember', 'gm')
+            ->innerJoin('gm.user', 'u')
+            ->leftJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = u AND e.consumedAt >= :start AND e.consumedAt < :end')
+            ->where('gm.group = :group')
+            ->setParameter('group', $group)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->groupBy('gm.user, u.name')
+            ->orderBy('totalBeers', 'DESC')
+            ->setMaxResults(2)
+            ->getQuery()
+            ->getResult();
+
+        $winner = $top[0] ?? null;
+        if ($winner === null || (float) $winner['totalBeers'] <= 0) {
+            return null;
+        }
+
+        if (isset($top[1]) && (float) $top[1]['totalBeers'] >= (float) $winner['totalBeers']) {
+            return null;
+        }
+
+        return [
+            'userId' => $winner['userId'],
+            'userName' => $winner['userName'],
+            'value' => (float) $winner['totalBeers'],
+        ];
+    }
+
+    private function countActiveDrinkers(Group $group, \DateTimeImmutable $start, \DateTimeImmutable $end): int
+    {
+        return (int) $this->getEntityManager()->createQueryBuilder()
+            ->select('COUNT(DISTINCT IDENTITY(gm.user))')
+            ->from('App\Entity\GroupMember', 'gm')
+            ->innerJoin('App\Entity\BeerEntry', 'e', 'WITH', 'e.user = gm.user AND e.consumedAt >= :start AND e.consumedAt < :end')
+            ->where('gm.group = :group')
+            ->setParameter('group', $group)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
@@ -492,16 +489,18 @@ class BeerEntryRepository extends ServiceEntityRepository
 
         // Fetch all entries for time-based calculations (weekend, daily, early/night)
         $allEntries = $this->createQueryBuilder('e')
-            ->select('e.consumedAt, e.quantity, e.volumeMl')
+            ->select('e.consumedAt, e.quantity, e.volumeMl, IDENTITY(e.beer) as beerId, e.customBeerName')
             ->where('e.user = :user')
             ->setParameter('user', $user)
             ->getQuery()
             ->getResult();
 
         // Calculate time-based stats in PHP using drinking day logic
-        $weekendBeers = 0;
-        $earlyBird = false;
+        $weekendScores = [];
+        $earlyBirdDays = [];
+        $czechBeerDays = [];
         $dailyCounts = [];
+        $dailyBeerVariety = [];
 
         foreach ($allEntries as $entry) {
             $consumedAt = $entry['consumedAt'];
@@ -514,19 +513,41 @@ class BeerEntryRepository extends ServiceEntityRepository
                 ? $quantity * 0.5
                 : $quantity;
 
-            // Weekend check uses drinking date
+            // Weekend scores are tracked per single weekend, keyed by its Saturday (drinking dates)
             $drinkingDayOfWeek = (int) (new \DateTimeImmutable($drinkingDate))->format('N');
             if ($drinkingDayOfWeek >= 6) {
-                $weekendBeers += $score;
+                $saturday = $drinkingDayOfWeek === 6
+                    ? $drinkingDate
+                    : (new \DateTimeImmutable($drinkingDate))->modify('-1 day')->format('Y-m-d');
+                $weekendScores[$saturday] = ($weekendScores[$saturday] ?? 0) + $score;
             }
 
-            // Early bird (between 5:00 and 10:00)
+            // Early bird (between 5:00 and 10:00), counted per drinking day
             if ($hour >= 5 && $hour < 10) {
-                $earlyBird = true;
+                $earlyBirdDays[$drinkingDate] = true;
             }
+
+            // Czech Beer Day (Sep 27), counted per year
+            if (str_ends_with($drinkingDate, '-09-27')) {
+                $czechBeerDays[substr($drinkingDate, 0, 4)] = true;
+            }
+
+            // Distinct beers per drinking day
+            $beerKey = $entry['beerId'] ?? 'custom:' . ($entry['customBeerName'] ?? '');
+            $dailyBeerVariety[$drinkingDate][$beerKey] = true;
 
             // Daily counts using drinking date
             $dailyCounts[$drinkingDate] = ($dailyCounts[$drinkingDate] ?? 0) + $score;
+        }
+
+        $maxDailyVariety = 0;
+        $tastingDays = 0;
+        foreach ($dailyBeerVariety as $beersOfDay) {
+            $variety = count($beersOfDay);
+            $maxDailyVariety = max($maxDailyVariety, $variety);
+            if ($variety >= 5) {
+                $tastingDays++;
+            }
         }
 
         // Calculate max daily, consecutive days and days with X+ beers from daily counts
@@ -578,11 +599,14 @@ class BeerEntryRepository extends ServiceEntityRepository
             'unique_breweries' => (int) $uniqueBreweries,
             'large_beers' => (int) ($sizeStats['largeBeers'] ?? 0),
             'small_beers' => (int) ($sizeStats['smallBeers'] ?? 0),
-            'weekend_beers' => $weekendBeers,
+            'max_weekend_beers' => empty($weekendScores) ? 0 : max($weekendScores),
             'max_loyal' => (float) ($maxLoyal['count'] ?? 0),
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
-            'early_bird' => $earlyBird,
+            'early_bird_days' => count($earlyBirdDays),
+            'czech_beer_days' => count($czechBeerDays),
+            'tasting_days' => $tastingDays,
+            'max_daily_variety' => $maxDailyVariety,
             'days_with_10_beers' => $daysWith10Beers,
             'days_with_15_beers' => $daysWith15Beers,
         ];
