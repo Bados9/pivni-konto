@@ -38,6 +38,27 @@ services:
     networks:
       - pivnikonto
 
+  cron:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    restart: always
+    # crond must run as root; the crontab belongs to www so the job doesn't poison var/ with root-owned files
+    user: root
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      # crond runs in the container's local time; without TZ that would be UTC
+      TZ: Europe/Prague
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - pivnikonto
+    entrypoint: /bin/sh -c "echo '1 5 * * * cd /var/www/html && php bin/console app:evaluate-group-achievements >> /var/www/html/var/log/cron.log 2>&1' | crontab -u www - && crond -f"
+
   postgres:
     image: postgres:16-alpine
     restart: always

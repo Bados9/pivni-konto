@@ -61,6 +61,7 @@ const categoryNames = {
   time: '⏰ Čas',
   performance: '💪 Výkony',
   special: '✨ Speciální',
+  group: '👥 Skupinové',
 }
 
 const filteredAchievements = computed(() => {

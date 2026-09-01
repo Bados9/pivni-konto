@@ -66,6 +66,27 @@ class UserAchievementRepository extends ServiceEntityRepository
         return $result;
     }
 
+    /**
+     * @return array<string, \DateTimeImmutable> achievementId => most recent unlockedAt
+     */
+    public function getLastUnlockedDates(User $user): array
+    {
+        $rows = $this->createQueryBuilder('ua')
+            ->select('ua.achievementId, MAX(ua.unlockedAt) as lastUnlockedAt')
+            ->where('ua.user = :user')
+            ->setParameter('user', $user)
+            ->groupBy('ua.achievementId')
+            ->getQuery()
+            ->getResult();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[$row['achievementId']] = new \DateTimeImmutable($row['lastUnlockedAt']);
+        }
+
+        return $result;
+    }
+
     public function countByUserAndAchievement(User $user, string $achievementId): int
     {
         return (int) $this->createQueryBuilder('ua')
