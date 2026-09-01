@@ -121,6 +121,30 @@ class BeerEntryRepositoryTest extends ApiTestCase
         $this->assertArrayNotHasKey('drinker_of_week', $awards);
     }
 
+    public function testBeersDrunkBeforeGroupCreationDoNotCount(): void
+    {
+        $users = $this->createUsers(5);
+        $group = $this->createGroupWithMembers($users);
+
+        // group founded in the middle of the drinking day
+        $this->setGroupCreatedAt($group, $this->dayStart->modify('+12 hours'));
+
+        foreach ($users as $user) {
+            $this->createEntry($user, $this->dayStart->modify('+10 hours'));
+        }
+        $this->entityManager->flush();
+
+        $awards = $this->repository->getGroupAwards($group, $this->dayStart, $this->dayEnd);
+
+        $this->assertArrayNotHasKey('drinker_of_day', $awards);
+    }
+
+    private function setGroupCreatedAt(Group $group, \DateTimeImmutable $createdAt): void
+    {
+        $reflection = new \ReflectionProperty(Group::class, 'createdAt');
+        $reflection->setValue($group, $createdAt);
+    }
+
     public function testTieIsBrokenByEarlierLastEntry(): void
     {
         $users = $this->createUsers(5);
