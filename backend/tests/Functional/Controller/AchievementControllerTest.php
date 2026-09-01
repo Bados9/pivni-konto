@@ -34,7 +34,7 @@ class AchievementControllerTest extends ApiTestCase
         $user = $this->createUser();
 
         $this->loginAs($user);
-        $this->apiRequest('GET', '/api/achievements/user/00000000-0000-0000-0000-000000000001');
+        $this->apiRequest('GET', '/api/achievements/user/01990000-0000-7000-8000-000000000001');
 
         $this->assertResponseStatusCodeSame(404);
     }
