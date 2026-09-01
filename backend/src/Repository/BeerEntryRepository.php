@@ -496,9 +496,8 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getResult();
 
         // Calculate time-based stats in PHP using drinking day logic
-        $weekendBeers = 0;
+        $weekendScores = [];
         $earlyBirdDays = [];
-        $nightOwlDays = [];
         $newYearDays = [];
         $dailyCounts = [];
         $dailyBeerVariety = [];
@@ -514,20 +513,18 @@ class BeerEntryRepository extends ServiceEntityRepository
                 ? $quantity * 0.5
                 : $quantity;
 
-            // Weekend check uses drinking date
+            // Weekend scores are tracked per single weekend, keyed by its Saturday (drinking dates)
             $drinkingDayOfWeek = (int) (new \DateTimeImmutable($drinkingDate))->format('N');
             if ($drinkingDayOfWeek >= 6) {
-                $weekendBeers += $score;
+                $saturday = $drinkingDayOfWeek === 6
+                    ? $drinkingDate
+                    : (new \DateTimeImmutable($drinkingDate))->modify('-1 day')->format('Y-m-d');
+                $weekendScores[$saturday] = ($weekendScores[$saturday] ?? 0) + $score;
             }
 
             // Early bird (between 5:00 and 10:00), counted per drinking day
             if ($hour >= 5 && $hour < 10) {
                 $earlyBirdDays[$drinkingDate] = true;
-            }
-
-            // Night owl (between 22:00 and 2:00), counted per drinking day
-            if ($hour >= 22 || $hour < 2) {
-                $nightOwlDays[$drinkingDate] = true;
             }
 
             // New Year's Eve, counted per year
@@ -602,12 +599,11 @@ class BeerEntryRepository extends ServiceEntityRepository
             'unique_breweries' => (int) $uniqueBreweries,
             'large_beers' => (int) ($sizeStats['largeBeers'] ?? 0),
             'small_beers' => (int) ($sizeStats['smallBeers'] ?? 0),
-            'weekend_beers' => $weekendBeers,
+            'max_weekend_beers' => empty($weekendScores) ? 0 : max($weekendScores),
             'max_loyal' => (float) ($maxLoyal['count'] ?? 0),
             'max_daily' => $maxDaily,
             'consecutive_days' => $consecutiveDays,
             'early_bird_days' => count($earlyBirdDays),
-            'night_owl_days' => count($nightOwlDays),
             'new_year_days' => count($newYearDays),
             'tasting_days' => $tastingDays,
             'max_daily_variety' => $maxDailyVariety,
