@@ -108,7 +108,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('achievements', $data);
         $this->assertArrayHasKey('summary', $data);
 
-        $this->assertCount(35, $data['achievements']);
+        $this->assertCount(34, $data['achievements']);
 
         // Check achievement structure
         $firstAchievement = $data['achievements'][0];
@@ -203,7 +203,7 @@ class AchievementControllerTest extends ApiTestCase
         $this->assertArrayHasKey('percentage', $data);
         $this->assertArrayHasKey('recent', $data);
 
-        $this->assertEquals(35, $data['total']);
+        $this->assertEquals(34, $data['total']);
         $this->assertIsArray($data['recent']);
     }
 
@@ -233,7 +233,7 @@ class AchievementControllerTest extends ApiTestCase
         $data = $this->getResponseData();
 
         $this->assertEquals(2, $data['unlocked']);
-        $this->assertEquals(round((2 / 35) * 100), $data['percentage']);
+        $this->assertEquals(round((2 / 34) * 100), $data['percentage']);
     }
 
     public function testDailyRepeatableAchievementShowsUnlocked(): void
