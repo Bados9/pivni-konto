@@ -105,11 +105,10 @@ class StatsController extends AbstractController
         }
 
         // Check authorization: users must share at least one group
-        if ($currentUser->getId()->toRfc4122() !== $userId) {
-            $sharedGroup = $this->findSharedGroup($currentUser, $targetUser);
-            if ($sharedGroup === null) {
-                return $this->json(['error' => 'Nemáte oprávnění zobrazit statistiky tohoto uživatele'], Response::HTTP_FORBIDDEN);
-            }
+        if ($currentUser->getId()->toRfc4122() !== $userId
+            && !$this->memberRepository->haveSharedGroup($currentUser, $targetUser)
+        ) {
+            return $this->json(['error' => 'Nemáte oprávnění zobrazit statistiky tohoto uživatele'], Response::HTTP_FORBIDDEN);
         }
 
         $dayStart = $this->drinkingDayService->getDrinkingDayStart();
@@ -149,24 +148,6 @@ class StatsController extends AbstractController
             'currentStreak' => $currentStreak,
             'averagePerDay' => $averagePerDay,
         ]);
-    }
-
-    private function findSharedGroup(User $user1, User $user2): ?object
-    {
-        $em = $this->entryRepository->getEntityManager();
-
-        $result = $em->createQueryBuilder()
-            ->select('g')
-            ->from('App\Entity\Group', 'g')
-            ->innerJoin('App\Entity\GroupMember', 'gm1', 'WITH', 'gm1.group = g AND gm1.user = :user1')
-            ->innerJoin('App\Entity\GroupMember', 'gm2', 'WITH', 'gm2.group = g AND gm2.user = :user2')
-            ->setParameter('user1', $user1)
-            ->setParameter('user2', $user2)
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
-
-        return $result;
     }
 
     #[Route('/leaderboard/{groupId}', name: 'stats_leaderboard', methods: ['GET'])]

@@ -238,6 +238,15 @@ describe('ApiService', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/achievements/me', expect.any(Object))
     })
 
+    it('getUserAchievements() calls correct endpoint', async () => {
+      await api.getUserAchievements('user-id')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/achievements/user/user-id',
+        expect.any(Object)
+      )
+    })
+
     it('getNotifications() calls correct endpoint with limit', async () => {
       await api.getNotifications(10)
 

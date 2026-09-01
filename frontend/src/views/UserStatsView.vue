@@ -4,12 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
 import StatsCard from '../components/StatsCard.vue'
+import AchievementsPanel from '../components/AchievementsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
 const stats = ref(null)
+const achievements = ref(null)
 const loading = ref(true)
 const error = ref('')
 
@@ -62,12 +64,22 @@ async function fetchUserStats() {
 
   try {
     stats.value = await api.getUserStats(userId)
+    await fetchUserAchievements(userId)
   } catch (err) {
     error.value = err.message
     stats.value = null
   }
 
   loading.value = false
+}
+
+async function fetchUserAchievements(userId) {
+  try {
+    achievements.value = await api.getUserAchievements(userId)
+  } catch (err) {
+    console.error('Failed to fetch user achievements:', err)
+    achievements.value = null
+  }
 }
 
 watch(() => route.params.userId, fetchUserStats)
@@ -197,6 +209,9 @@ onMounted(fetchUserStats)
           </div>
         </section>
       </div>
+
+      <!-- Achievements -->
+      <AchievementsPanel v-if="achievements" :achievements="achievements" highlight="top" />
     </template>
   </div>
 </template>

@@ -3,6 +3,9 @@
 namespace App\Tests\Functional\Controller;
 
 use App\Entity\BeerEntry;
+use App\Entity\Group;
+use App\Entity\GroupMember;
+use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Tests\Functional\Api\ApiTestCase;
 
@@ -13,6 +16,83 @@ class AchievementControllerTest extends ApiTestCase
         $this->apiRequest('GET', '/api/achievements/me');
 
         $this->assertResponseStatusCodeSame(401);
+    }
+
+    public function testUserAchievementsRequiresSharedGroup(): void
+    {
+        $user = $this->createUser();
+        $stranger = $this->createUser();
+
+        $this->loginAs($user);
+        $this->apiRequest('GET', '/api/achievements/user/' . $stranger->getId()->toRfc4122());
+
+        $this->assertResponseStatusCodeSame(403);
+    }
+
+    public function testUserAchievementsReturns404ForUnknownUser(): void
+    {
+        $user = $this->createUser();
+
+        $this->loginAs($user);
+        $this->apiRequest('GET', '/api/achievements/user/00000000-0000-0000-0000-000000000001');
+
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testUserAchievementsReturns400ForInvalidUuid(): void
+    {
+        $user = $this->createUser();
+
+        $this->loginAs($user);
+        $this->apiRequest('GET', '/api/achievements/user/not-a-uuid');
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
+    public function testUserAchievementsSuccessForGroupmate(): void
+    {
+        $user = $this->createUser();
+        $groupmate = $this->createUser(name: 'Groupmate');
+        $this->createSharedGroup($user, $groupmate);
+
+        $achievement = new UserAchievement();
+        $achievement->setUser($groupmate);
+        $achievement->setAchievementId('first_beer');
+        $this->entityManager->persist($achievement);
+        $this->entityManager->flush();
+
+        $this->loginAs($user);
+        $this->apiRequest('GET', '/api/achievements/user/' . $groupmate->getId()->toRfc4122());
+
+        $this->assertResponseStatusCodeSame(200);
+
+        $data = $this->getResponseData();
+        $this->assertSame('Groupmate', $data['userName']);
+        $this->assertArrayHasKey('summary', $data);
+        $this->assertArrayHasKey('achievements', $data);
+        $this->assertArrayHasKey('grouped', $data);
+        $this->assertEquals(1, $data['summary']['unlocked']);
+    }
+
+    private function createSharedGroup(User $user1, User $user2): void
+    {
+        $group = new Group();
+        $group->setName('Shared Group');
+        $group->setCreatedBy($user1);
+        $this->entityManager->persist($group);
+
+        $member1 = new GroupMember();
+        $member1->setUser($user1);
+        $member1->setGroup($group);
+        $member1->setRole('admin');
+        $this->entityManager->persist($member1);
+
+        $member2 = new GroupMember();
+        $member2->setUser($user2);
+        $member2->setGroup($group);
+        $member2->setRole('member');
+        $this->entityManager->persist($member2);
+        $this->entityManager->flush();
     }
 
     public function testGetMyAchievementsReturnsAllAchievements(): void
