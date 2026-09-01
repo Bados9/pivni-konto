@@ -119,7 +119,7 @@ onMounted(fetchUserStats)
 
       <!-- Period stats -->
       <section class="mb-6">
-        <div class="grid grid-cols-5 gap-2">
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
           <StatsCard title="Dnes" :value="stats.today" />
           <StatsCard title="Týden" :value="stats.thisWeek" />
           <StatsCard title="Měsíc" :value="stats.thisMonth" />
@@ -174,7 +174,7 @@ onMounted(fetchUserStats)
       </section>
 
       <!-- Top beers and breweries -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2">
         <section>
           <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Top piva</h2>
           <div class="card space-y-2">

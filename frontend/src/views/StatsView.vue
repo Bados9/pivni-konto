@@ -20,7 +20,6 @@ const loading = ref(true)
 
 // Chart dimensions
 const chartHeight = 120
-const chartPadding = { top: 10, right: 10, bottom: 20, left: 30 }
 
 // Generate last 30 days for chart
 const last30Days = computed(() => {
@@ -47,19 +46,6 @@ const chartData = computed(() => {
 })
 
 const maxCount = computed(() => Math.max(...chartData.value.map(d => d.count), 1))
-
-// SVG path for the line chart
-const chartPath = computed(() => {
-  const data = chartData.value
-  const width = 100 // percentage
-  const barWidth = width / data.length
-
-  return data.map((d, i) => {
-    const x = i * barWidth + barWidth / 2
-    const y = chartHeight - chartPadding.bottom - (d.count / maxCount.value) * (chartHeight - chartPadding.top - chartPadding.bottom)
-    return `${i === 0 ? 'M' : 'L'} ${x}% ${y}`
-  }).join(' ')
-})
 
 // Format volume in liters
 function formatVolume(ml) {
@@ -112,7 +98,7 @@ onMounted(fetchStats)
     <template v-else>
       <!-- Period stats -->
       <section class="mb-6">
-        <div class="grid grid-cols-5 gap-2">
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
           <StatsCard title="Dnes" :value="stats.today" />
           <StatsCard title="Týden" :value="stats.thisWeek" />
           <StatsCard title="Měsíc" :value="stats.thisMonth" />
@@ -172,7 +158,7 @@ onMounted(fetchStats)
       </section>
 
       <!-- Top beers and breweries -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2">
         <!-- Top beers -->
         <section>
           <h2 class="text-sm font-medium mb-3 text-gray-400 uppercase tracking-wider">Top piva</h2>
