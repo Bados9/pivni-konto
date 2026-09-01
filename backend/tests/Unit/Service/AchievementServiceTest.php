@@ -54,7 +54,11 @@ class AchievementServiceTest extends TestCase
             'total_volume_ml' => 0,
             'unique_beers' => 0,
             'unique_breweries' => 0,
-            'early_bird' => false,
+            'early_bird_days' => 0,
+            'night_owl_days' => 0,
+            'new_year_days' => 0,
+            'tasting_days' => 0,
+            'max_daily_variety' => 0,
             'weekend_beers' => 0,
             'small_beers' => 0,
             'max_daily' => 0,
@@ -149,7 +153,7 @@ class AchievementServiceTest extends TestCase
         $user = $this->createUser();
         $stats = $this->getBaseStats();
         $stats['total_beers'] = 1;
-        $stats['early_bird'] = true;
+        $stats['early_bird_days'] = 1;
         $stats['weekend_beers'] = 30;
 
         $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
@@ -161,6 +165,74 @@ class AchievementServiceTest extends TestCase
         $ids = array_column($result, 'id');
         $this->assertContains('early_bird', $ids);
         $this->assertContains('weekend_warrior', $ids);
+    }
+
+    public function testEarlyBirdIsRepeatablePerDay(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['early_bird_days'] = 5;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([
+            'early_bird' => 2,
+            'first_beer' => 1,
+        ]);
+
+        // 3 new rows (5-2) persisted
+        $this->entityManager->expects($this->exactly(3))->method('persist');
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $earlyBird = array_values(array_filter($result, fn($a) => $a['id'] === 'early_bird'));
+        $this->assertCount(1, $earlyBird);
+        $this->assertEquals(5, $earlyBird[0]['timesUnlocked']);
+    }
+
+    public function testNightOwlAndTasterAchievements(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['night_owl_days'] = 2;
+        $stats['tasting_days'] = 1;
+        $stats['max_daily_variety'] = 5;
+        $stats['new_year_days'] = 1;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $nightOwl = array_values(array_filter($result, fn($a) => $a['id'] === 'night_owl'));
+        $this->assertCount(1, $nightOwl);
+        $this->assertEquals(2, $nightOwl[0]['timesUnlocked']);
+
+        $ids = array_column($result, 'id');
+        $this->assertContains('taster_day', $ids);
+        $this->assertContains('new_year', $ids);
+    }
+
+    public function testStreakAchievements(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 1;
+        $stats['consecutive_days'] = 14;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $ids = array_column($result, 'id');
+        $this->assertContains('weekly_streak', $ids);
+        $this->assertContains('streak_14', $ids);
+        $this->assertNotContains('streak_30', $ids);
     }
 
     public function testDailyRepeatableAchievement(): void
@@ -311,7 +383,7 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(26, $result['total']);
+        $this->assertEquals(35, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 
