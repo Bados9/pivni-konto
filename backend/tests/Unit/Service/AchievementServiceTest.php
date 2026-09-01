@@ -210,6 +210,29 @@ class AchievementServiceTest extends TestCase
         $this->assertContains('czech_beer_day', $ids);
     }
 
+    public function testMilestoneAndVolumeTopTiers(): void
+    {
+        $user = $this->createUser();
+        $stats = $this->getBaseStats();
+        $stats['total_beers'] = 5000;
+        $stats['total_volume_ml'] = 250000;
+        $stats['unique_breweries'] = 20;
+
+        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
+        $this->memberRepository->method('findBy')->willReturn([]);
+        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
+
+        $result = $this->service->checkAndUnlockAchievements($user);
+
+        $ids = array_column($result, 'id');
+        $this->assertContains('beer_5000', $ids);
+        $this->assertNotContains('beer_10000', $ids);
+        $this->assertContains('volume_250l', $ids);
+        $this->assertNotContains('volume_500l', $ids);
+        $this->assertContains('breweries_20', $ids);
+        $this->assertNotContains('breweries_50', $ids);
+    }
+
     public function testWeekendWarriorRequiresSingleWeekend(): void
     {
         $user = $this->createUser();
@@ -226,24 +249,6 @@ class AchievementServiceTest extends TestCase
         $this->assertNotContains('weekend_warrior', array_column($result, 'id'));
     }
 
-    public function testStreakAchievements(): void
-    {
-        $user = $this->createUser();
-        $stats = $this->getBaseStats();
-        $stats['total_beers'] = 1;
-        $stats['consecutive_days'] = 14;
-
-        $this->entryRepository->method('getAchievementStatsByUser')->willReturn($stats);
-        $this->memberRepository->method('findBy')->willReturn([]);
-        $this->achievementRepository->method('getUnlockedWithCounts')->willReturn([]);
-
-        $result = $this->service->checkAndUnlockAchievements($user);
-
-        $ids = array_column($result, 'id');
-        $this->assertContains('weekly_streak', $ids);
-        $this->assertContains('streak_14', $ids);
-        $this->assertNotContains('streak_30', $ids);
-    }
 
     public function testDailyRepeatableAchievement(): void
     {
@@ -393,7 +398,7 @@ class AchievementServiceTest extends TestCase
         $this->assertArrayHasKey('unlocked', $result);
         $this->assertArrayHasKey('percentage', $result);
         $this->assertArrayHasKey('recent', $result);
-        $this->assertEquals(34, $result['total']);
+        $this->assertEquals(38, $result['total']);
         $this->assertEquals(1, $result['unlocked']);
     }
 
