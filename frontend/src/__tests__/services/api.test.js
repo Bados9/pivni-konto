@@ -237,5 +237,29 @@ describe('ApiService', () => {
 
       expect(global.fetch).toHaveBeenCalledWith('/api/achievements/me', expect.any(Object))
     })
+
+    it('getNotifications() calls correct endpoint with limit', async () => {
+      await api.getNotifications(10)
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/notifications?limit=10', expect.any(Object))
+    })
+
+    it('getUnreadNotificationsCount() calls correct endpoint', async () => {
+      await api.getUnreadNotificationsCount()
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/notifications/unread-count',
+        expect.any(Object)
+      )
+    })
+
+    it('markAllNotificationsRead() calls correct endpoint', async () => {
+      await api.markAllNotificationsRead()
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/notifications/read-all',
+        expect.objectContaining({ method: 'POST' })
+      )
+    })
   })
 })

@@ -200,6 +200,14 @@ class AchievementService
     }
 
     /**
+     * @return array{name: string, description: string, icon: string, category: string, repeatable?: bool}|null
+     */
+    public function getDefinition(string $id): ?array
+    {
+        return $this->achievementDefinitions[$id] ?? null;
+    }
+
+    /**
      * Check all achievements and unlock new ones.
      * Returns array of newly unlocked achievements.
      *

@@ -10,6 +10,7 @@ use App\Repository\GroupRepository;
 use App\Repository\UserAchievementRepository;
 use App\Service\DrinkingDayService;
 use App\Service\GroupAchievementService;
+use App\Service\GroupAwardNotifier;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,7 @@ class GroupAchievementServiceTest extends TestCase
     private MockObject&UserAchievementRepository $achievementRepository;
     private MockObject&GroupRepository $groupRepository;
     private MockObject&EntityManagerInterface $em;
+    private MockObject&GroupAwardNotifier $awardNotifier;
     private Group $group;
 
     protected function setUp(): void
@@ -31,6 +33,7 @@ class GroupAchievementServiceTest extends TestCase
         $this->achievementRepository = $this->createMock(UserAchievementRepository::class);
         $this->groupRepository = $this->createMock(GroupRepository::class);
         $this->em = $this->createMock(EntityManagerInterface::class);
+        $this->awardNotifier = $this->createMock(GroupAwardNotifier::class);
 
         $this->service = new GroupAchievementService(
             $this->entryRepository,
@@ -38,6 +41,7 @@ class GroupAchievementServiceTest extends TestCase
             $this->groupRepository,
             $this->em,
             new DrinkingDayService(),
+            $this->awardNotifier,
         );
 
         $this->group = new Group();
@@ -141,6 +145,39 @@ class GroupAchievementServiceTest extends TestCase
         $this->assertSame('drinker_of_day', $persisted->getAchievementId());
         $this->assertSame($winner, $persisted->getUser());
         $this->assertEquals(new \DateTimeImmutable('2026-08-25 12:00'), $persisted->getUnlockedAt());
+    }
+
+    public function testWinnerIsNotifiedByDefault(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+        $winner = new User();
+
+        $this->entryRepository->method('getGroupAwards')
+            ->willReturn(['drinker_of_day' => $this->winnerAward()]);
+        $this->achievementRepository->method('hasAchievementOnDate')->willReturn(false);
+        $this->em->method('getReference')->willReturn($winner);
+
+        $this->awardNotifier->expects($this->once())
+            ->method('notifyWinner')
+            ->with($winner, $this->group, 'drinker_of_day', $forDate);
+
+        $this->service->evaluateGroupAchievements($forDate);
+    }
+
+    public function testWinnerIsNotNotifiedWhenNotifyDisabled(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+
+        $this->entryRepository->method('getGroupAwards')
+            ->willReturn(['drinker_of_day' => $this->winnerAward()]);
+        $this->achievementRepository->method('hasAchievementOnDate')->willReturn(false);
+        $this->em->method('getReference')->willReturn(new User());
+
+        $this->awardNotifier->expects($this->never())->method('notifyWinner');
+
+        $saved = $this->service->evaluateGroupAchievements($forDate, notify: false);
+
+        $this->assertSame(1, $saved);
     }
 
     public function testSkipsAwardAlreadyGrantedOnDate(): void
