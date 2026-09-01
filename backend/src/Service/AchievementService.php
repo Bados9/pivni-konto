@@ -50,6 +50,18 @@ class AchievementService
             'icon' => '⚡',
             'category' => 'milestones',
         ],
+        'beer_5000' => [
+            'name' => 'Pivní titán',
+            'description' => 'Vypij 5000 piv',
+            'icon' => '🗿',
+            'category' => 'milestones',
+        ],
+        'beer_10000' => [
+            'name' => 'Pivní bůh',
+            'description' => 'Vypij 10000 piv',
+            'icon' => '🔱',
+            'category' => 'milestones',
+        ],
 
         // Objem
         'volume_10l' => [
@@ -70,10 +82,22 @@ class AchievementService
             'icon' => '🏊',
             'category' => 'volume',
         ],
+        'volume_250l' => [
+            'name' => 'Vana',
+            'description' => 'Vypij celkem 250 litrů',
+            'icon' => '🛁',
+            'category' => 'volume',
+        ],
         'volume_500l' => [
             'name' => 'Cisterna',
             'description' => 'Vypij celkem 500 litrů',
             'icon' => '🚛',
+            'category' => 'volume',
+        ],
+        'volume_1000l' => [
+            'name' => 'Tanker',
+            'description' => 'Vypij celkem 1000 litrů',
+            'icon' => '🚢',
             'category' => 'volume',
         ],
 
@@ -109,8 +133,20 @@ class AchievementService
             'category' => 'variety',
         ],
         'breweries_10' => [
-            'name' => 'Světoběžník',
+            'name' => 'Poutník',
             'description' => 'Ochutnej piva z 10 různých pivovarů',
+            'icon' => '🎒',
+            'category' => 'variety',
+        ],
+        'breweries_20' => [
+            'name' => 'Cestovatel',
+            'description' => 'Ochutnej piva z 20 různých pivovarů',
+            'icon' => '🧭',
+            'category' => 'variety',
+        ],
+        'breweries_50' => [
+            'name' => 'Světoběžník',
+            'description' => 'Ochutnej piva z 50 různých pivovarů',
             'icon' => '🌍',
             'category' => 'variety',
         ],
@@ -149,18 +185,6 @@ class AchievementService
             'name' => 'Perfektní týden',
             'description' => 'Pij pivo každý den celý týden',
             'icon' => '🔥',
-            'category' => 'performance',
-        ],
-        'streak_14' => [
-            'name' => 'Železná játra',
-            'description' => 'Pij pivo 14 dní v řadě',
-            'icon' => '💪',
-            'category' => 'performance',
-        ],
-        'streak_30' => [
-            'name' => 'Maratonec',
-            'description' => 'Pij pivo 30 dní v řadě',
-            'icon' => '🏃',
             'category' => 'performance',
         ],
 
@@ -483,11 +507,15 @@ class AchievementService
             'beer_500' => $stats['total_beers'] >= 500,
             'beer_1000' => $stats['total_beers'] >= 1000,
             'beer_2000' => $stats['total_beers'] >= 2000,
+            'beer_5000' => $stats['total_beers'] >= 5000,
+            'beer_10000' => $stats['total_beers'] >= 10000,
 
             'volume_10l' => $stats['total_volume_ml'] >= 10000,
             'volume_50l' => $stats['total_volume_ml'] >= 50000,
             'volume_100l' => $stats['total_volume_ml'] >= 100000,
+            'volume_250l' => $stats['total_volume_ml'] >= 250000,
             'volume_500l' => $stats['total_volume_ml'] >= 500000,
+            'volume_1000l' => $stats['total_volume_ml'] >= 1000000,
 
             'variety_5' => $stats['unique_beers'] >= 5,
             'variety_15' => $stats['unique_beers'] >= 15,
@@ -495,6 +523,8 @@ class AchievementService
             'variety_50' => $stats['unique_beers'] >= 50,
             'breweries_5' => $stats['unique_breweries'] >= 5,
             'breweries_10' => $stats['unique_breweries'] >= 10,
+            'breweries_20' => $stats['unique_breweries'] >= 20,
+            'breweries_50' => $stats['unique_breweries'] >= 50,
 
             'early_bird' => ($stats['early_bird_days'] ?? 0) >= 1,
             'weekend_warrior' => $stats['max_weekend_beers'] >= 25,
@@ -502,8 +532,6 @@ class AchievementService
             'daily_10' => $stats['max_daily'] >= 10,
             'daily_15' => $stats['max_daily'] >= 15,
             'weekly_streak' => $stats['consecutive_days'] >= 7,
-            'streak_14' => $stats['consecutive_days'] >= 14,
-            'streak_30' => $stats['consecutive_days'] >= 30,
 
             'small_but_mighty' => $stats['small_beers'] >= 10,
             'loyal_fan' => $stats['max_loyal'] >= 100,
@@ -528,11 +556,15 @@ class AchievementService
             'beer_500' => ['current' => min($stats['total_beers'], 500), 'target' => 500],
             'beer_1000' => ['current' => min($stats['total_beers'], 1000), 'target' => 1000],
             'beer_2000' => ['current' => min($stats['total_beers'], 2000), 'target' => 2000],
+            'beer_5000' => ['current' => min($stats['total_beers'], 5000), 'target' => 5000],
+            'beer_10000' => ['current' => min($stats['total_beers'], 10000), 'target' => 10000],
 
             'volume_10l' => ['current' => min($stats['total_volume_ml'], 10000) / 1000, 'target' => 10],
             'volume_50l' => ['current' => min($stats['total_volume_ml'], 50000) / 1000, 'target' => 50],
             'volume_100l' => ['current' => min($stats['total_volume_ml'], 100000) / 1000, 'target' => 100],
+            'volume_250l' => ['current' => min($stats['total_volume_ml'], 250000) / 1000, 'target' => 250],
             'volume_500l' => ['current' => min($stats['total_volume_ml'], 500000) / 1000, 'target' => 500],
+            'volume_1000l' => ['current' => min($stats['total_volume_ml'], 1000000) / 1000, 'target' => 1000],
 
             'variety_5' => ['current' => min($stats['unique_beers'], 5), 'target' => 5],
             'variety_15' => ['current' => min($stats['unique_beers'], 15), 'target' => 15],
@@ -540,6 +572,8 @@ class AchievementService
             'variety_50' => ['current' => min($stats['unique_beers'], 50), 'target' => 50],
             'breweries_5' => ['current' => min($stats['unique_breweries'], 5), 'target' => 5],
             'breweries_10' => ['current' => min($stats['unique_breweries'], 10), 'target' => 10],
+            'breweries_20' => ['current' => min($stats['unique_breweries'], 20), 'target' => 20],
+            'breweries_50' => ['current' => min($stats['unique_breweries'], 50), 'target' => 50],
 
             'early_bird' => ['current' => min($stats['early_bird_days'] ?? 0, 1), 'target' => 1],
             'weekend_warrior' => ['current' => min($stats['max_weekend_beers'], 25), 'target' => 25],
@@ -547,8 +581,6 @@ class AchievementService
             'daily_10' => ['current' => min($stats['max_daily'], 10), 'target' => 10],
             'daily_15' => ['current' => min($stats['max_daily'], 15), 'target' => 15],
             'weekly_streak' => ['current' => min($stats['consecutive_days'], 7), 'target' => 7],
-            'streak_14' => ['current' => min($stats['consecutive_days'], 14), 'target' => 14],
-            'streak_30' => ['current' => min($stats['consecutive_days'], 30), 'target' => 30],
 
             'small_but_mighty' => ['current' => min($stats['small_beers'], 10), 'target' => 10],
             'loyal_fan' => ['current' => min($stats['max_loyal'], 100), 'target' => 100],
