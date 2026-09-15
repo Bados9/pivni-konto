@@ -11,6 +11,9 @@ services:
       - frontend_build:/var/www/html/frontend:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+      # Další virtuální hosty na tomto VPS (časomíra Sokol). Adresář plní deploy
+      # té druhé aplikace; když neexistuje, Docker vytvoří prázdný a nginx jede dál.
+      - /var/www/casomira-nginx:/etc/nginx/extra:ro
     # To enable HTTPS, swap prod.conf for prod-ssl.conf after running setup-https.sh:
     # - ./docker/nginx/prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
     # Dostupnost padel-app kontejneru přes host loopback (port 3101 bind na VPS).
