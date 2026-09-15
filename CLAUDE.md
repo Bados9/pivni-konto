@@ -16,14 +16,21 @@
 3. Open a Pull Request targeting `dev`
 4. Wait for CI tests to pass
 5. Get code review if needed
-6. Merge to `dev`
+6. **Rebase merge** to `dev` (keeps thematic commits; merge commits are disabled repo-wide)
+7. Delete the feature branch after merging
 
 ### Deploying to production
 1. Open a Pull Request from `dev` to `master`
 2. Wait for CI tests to pass
-3. Merge to `master` (triggers automatic deployment)
+3. **Squash merge** to `master` — production gets exactly one release commit (triggers automatic deployment)
+4. **Immediately re-align `dev` with `master`**, so the next release PR lists only new commits:
+   ```bash
+   git push --force-with-lease origin origin/master:refs/heads/dev
+   ```
+   This needs force-push temporarily allowed on `dev` (Settings → Branches); re-enable the protection afterwards. Detailed commit history stays visible in the merged feature PRs.
+5. Run any release-specific manual steps listed in the release PR description on the VPS
 
-**Never push directly to master or dev branch.**
+**Never push directly to master or dev branch** (the only exception is the post-release `dev` re-align above).
 
 ## Running Tests
 
