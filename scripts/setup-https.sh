@@ -1,79 +1,32 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Jednorázové získání certifikátu pro pivnikonto.duckdns.org přes webroot běžícího nginxu
+# (bez výpadku) + hook, který po automatické obnově reloadne nginx v kontejneru.
+# Spustit jako root na VPS PŘED nasazením verze s prod-ssl.conf. Opakované spuštění neškodí.
+set -euo pipefail
 
-DOMAIN="46-225-59-170.sslip.io"
-EMAIL="info@pivnikonto.cz"
-CERTBOT_DIR="/var/www/pivnikonto/certbot/www"
+DOMAIN="${DOMAIN:-pivnikonto.duckdns.org}"
+EMAIL="${EMAIL:-}"
+WEBROOT="${WEBROOT:-/var/www/pivnikonto/certbot/www}"
+NGINX_CONTAINER="${NGINX_CONTAINER:-pivnikonto-nginx-1}"
 
-echo "=== HTTPS Setup for $DOMAIN ==="
+command -v certbot >/dev/null || { echo "certbot chybí: apt-get install -y certbot"; exit 1; }
+mkdir -p "$WEBROOT"
 
-# 1. Install certbot
-if ! command -v certbot &> /dev/null; then
-    echo "Installing certbot..."
-    apt-get update && apt-get install -y certbot
+SERVER_IP="$(curl -4fs https://ifconfig.me)"
+DNS_IP="$(getent ahostsv4 "$DOMAIN" | awk 'NR==1{print $1}' || true)"
+[ "$DNS_IP" = "$SERVER_IP" ] || { echo "DNS: $DOMAIN -> '$DNS_IP', server má $SERVER_IP. Oprav DuckDNS a spusť znovu."; exit 1; }
+
+if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+  [ -n "$EMAIL" ] || read -rp "E-mail pro Let's Encrypt: " EMAIL
+  certbot certonly --webroot -w "$WEBROOT" -d "$DOMAIN" --agree-tos -m "$EMAIL" --no-eff-email --non-interactive
 fi
 
-# 2. Create certbot webroot directory
-mkdir -p "$CERTBOT_DIR"
+mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx-container.sh <<HOOK
+#!/bin/sh
+docker exec $NGINX_CONTAINER nginx -s reload
+HOOK
+chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx-container.sh
 
-# 3. Temporarily use HTTP-only nginx config for cert issuance
-echo "Stopping containers..."
-cd /var/www/pivnikonto
-docker compose -f docker-compose.prod.yml down
-
-# Create a temporary nginx config that only serves HTTP (for ACME challenge)
-cat > /tmp/nginx-certbot.conf << 'NGINX'
-server {
-    listen 80;
-    server_name _;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 200 'OK';
-        add_header Content-Type text/plain;
-    }
-}
-NGINX
-
-# Start nginx with temporary config
-docker run -d --name certbot-nginx \
-    -p 80:80 \
-    -v /tmp/nginx-certbot.conf:/etc/nginx/conf.d/default.conf:ro \
-    -v "$CERTBOT_DIR":/var/www/certbot:ro \
-    nginx:alpine
-
-# 4. Get certificate
-echo "Requesting certificate for $DOMAIN..."
-certbot certonly --webroot \
-    -w "$CERTBOT_DIR" \
-    -d "$DOMAIN" \
-    --email "$EMAIL" \
-    --agree-tos \
-    --non-interactive
-
-# 5. Cleanup temporary nginx
-docker stop certbot-nginx && docker rm certbot-nginx
-
-# 6. Start the app with HTTPS
-echo "Starting app with HTTPS..."
-docker compose -f docker-compose.prod.yml up -d --build
-
-# 7. Setup auto-renewal cron
-if ! crontab -l 2>/dev/null | grep -q "certbot renew"; then
-    echo "Adding certbot renewal cron..."
-    (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --deploy-hook 'cd /var/www/pivnikonto && docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload'") | crontab -
-fi
-
-echo ""
-echo "=== HTTPS Setup Complete ==="
-echo "Your app is now available at: https://$DOMAIN"
-echo "Certificate auto-renewal is configured (daily check at 3 AM)."
-echo ""
-echo "NEXT STEPS:"
-echo "1. Generate VAPID keys:  docker compose -f docker-compose.prod.yml exec php php bin/console app:generate-vapid-keys"
-echo "   (or manually: openssl ecparam -genkey -name prime256v1 -noout | openssl ec -outform DER 2>/dev/null | tail -c +8 | head -c 32 | base64 -w0 | tr '+/' '-_')"
-echo "2. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in .env.prod"
-echo "3. Update CORS_ALLOW_ORIGIN in .env.prod to include https://$DOMAIN"
+echo "OK: certifikát v /etc/letsencrypt/live/$DOMAIN, obnovu hlídá systemd timer certbotu."
+echo "Teď je možné nasadit verzi s prod-ssl.conf."
