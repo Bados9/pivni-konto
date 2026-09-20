@@ -78,6 +78,7 @@ class BeerEntry
 
     #[ORM\Column]
     #[Groups(['entry:read', 'entry:write', 'entry:create'])]
+    #[Assert\LessThanOrEqual('+5 minutes', message: 'Datum konzumace nemůže být v budoucnosti')]
     private \DateTimeImmutable $consumedAt;
 
     #[ORM\Column(length: 255, nullable: true)]

@@ -29,7 +29,11 @@ const retroSize = ref('large')
 const addingRetro = ref(false)
 
 function formatDateForInput(date) {
-  return date.toISOString().split('T')[0]
+  // local date, not UTC - toISOString() would block "today" between midnight and ~2 AM
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const retroBeer = computed(() => {
@@ -96,13 +100,14 @@ async function addBeer() {
 async function addRetroEntry() {
   addingRetro.value = true
   try {
-    // Nastavíme čas na 20:00 vybraného dne
-    const consumedAt = `${retroDate.value}T20:00:00`
-
     const options = {
       volumeMl: retroVolumeMl.value,
-      quantity: retroQuantity.value,
-      consumedAt
+      quantity: retroQuantity.value
+    }
+    // Minulý den: čas 20:00. Dnešek posíláme bez consumedAt (server doplní teď),
+    // aby dopoledne nevznikl budoucí čas, který backend odmítá.
+    if (retroDate.value !== formatDateForInput(new Date())) {
+      options.consumedAt = `${retroDate.value}T20:00:00`
     }
     if (retroBeerId.value) {
       options.beerId = retroBeerId.value
