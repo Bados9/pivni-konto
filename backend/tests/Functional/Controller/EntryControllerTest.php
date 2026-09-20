@@ -74,6 +74,33 @@ class EntryControllerTest extends ApiTestCase
         $this->assertStringContainsString('2026-01-30', $data['consumedAt']);
     }
 
+    public function testQuickAddRejectsFutureConsumedAt(): void
+    {
+        $user = $this->createUser();
+        $this->loginAs($user);
+
+        $this->apiRequest('POST', '/api/entries/quick-add', [
+            'volumeMl' => 500,
+            'consumedAt' => (new \DateTimeImmutable('+1 day'))->format('c'),
+        ]);
+
+        $this->assertResponseStatusCodeSame(400);
+        $this->assertStringContainsString('budoucnosti', $this->getResponseData()['error']);
+    }
+
+    public function testQuickAddRejectsMalformedConsumedAt(): void
+    {
+        $user = $this->createUser();
+        $this->loginAs($user);
+
+        $this->apiRequest('POST', '/api/entries/quick-add', [
+            'volumeMl' => 500,
+            'consumedAt' => 'not-a-date',
+        ]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
     public function testQuickAddTriggersAchievementCheck(): void
     {
         $user = $this->createUser();

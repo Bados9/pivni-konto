@@ -82,7 +82,14 @@ class EntryController extends AbstractController
 
         $consumedAt = $data['consumedAt'] ?? null;
         if ($consumedAt) {
-            $entry->setConsumedAt(new \DateTimeImmutable($consumedAt));
+            $consumedAtDate = $this->parseConsumedAt($consumedAt);
+            if ($consumedAtDate === null) {
+                return $this->json(['error' => 'Neplatný formát data'], Response::HTTP_BAD_REQUEST);
+            }
+            if ($consumedAtDate > new \DateTimeImmutable('+5 minutes')) {
+                return $this->json(['error' => 'Datum konzumace nemůže být v budoucnosti'], Response::HTTP_BAD_REQUEST);
+            }
+            $entry->setConsumedAt($consumedAtDate);
         }
 
         $note = $data['note'] ?? null;
@@ -116,6 +123,15 @@ class EntryController extends AbstractController
         }
 
         return $this->json($response, Response::HTTP_CREATED);
+    }
+
+    private function parseConsumedAt(string $value): ?\DateTimeImmutable
+    {
+        try {
+            return new \DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     #[Route('/{id}', name: 'entries_delete', methods: ['DELETE'])]
