@@ -180,6 +180,85 @@ class GroupAchievementServiceTest extends TestCase
         $this->assertSame(1, $saved);
     }
 
+    public function testReconcileMovesAwardToRightfulWinner(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+        $rightfulWinner = new User();
+        $wrongHolder = new User();
+
+        $wrongRow = new UserAchievement();
+        $wrongRow->setUser($wrongHolder);
+        $wrongRow->setAchievementId('drinker_of_day');
+
+        $this->entryRepository->method('getGroupAwards')
+            ->willReturn(['drinker_of_day' => $this->winnerAward()]);
+        $this->achievementRepository->method('findByAchievementOnDate')
+            ->with('drinker_of_day', $forDate)
+            ->willReturn([$wrongRow]);
+        $this->em->method('getReference')->willReturn($rightfulWinner);
+
+        $this->em->expects($this->once())->method('remove')->with($wrongRow);
+        $persisted = null;
+        $this->em->expects($this->once())
+            ->method('persist')
+            ->willReturnCallback(function (UserAchievement $achievement) use (&$persisted) {
+                $persisted = $achievement;
+            });
+        $this->em->expects($this->once())->method('flush');
+
+        [$added, $removed] = $this->service->reconcileGroupAchievements($forDate);
+
+        $this->assertSame(1, $added);
+        $this->assertSame(1, $removed);
+        $this->assertSame($rightfulWinner, $persisted->getUser());
+        $this->assertSame('drinker_of_day', $persisted->getAchievementId());
+        $this->assertEquals(new \DateTimeImmutable('2026-08-25 12:00'), $persisted->getUnlockedAt());
+    }
+
+    public function testReconcileRemovesAwardWhenNobodyQualifies(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+
+        $staleRow = new UserAchievement();
+        $staleRow->setUser(new User());
+        $staleRow->setAchievementId('drinker_of_day');
+
+        $this->entryRepository->method('getGroupAwards')->willReturn([]);
+        $this->achievementRepository->method('findByAchievementOnDate')->willReturn([$staleRow]);
+
+        $this->em->expects($this->once())->method('remove')->with($staleRow);
+        $this->em->expects($this->never())->method('persist');
+
+        [$added, $removed] = $this->service->reconcileGroupAchievements($forDate);
+
+        $this->assertSame(0, $added);
+        $this->assertSame(1, $removed);
+    }
+
+    public function testReconcileKeepsCorrectWinnerUntouched(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+        $winner = new User();
+
+        $correctRow = new UserAchievement();
+        $correctRow->setUser($winner);
+        $correctRow->setAchievementId('drinker_of_day');
+
+        $award = $this->winnerAward();
+        $award['userId'] = $winner->getId()->toRfc4122();
+
+        $this->entryRepository->method('getGroupAwards')->willReturn(['drinker_of_day' => $award]);
+        $this->achievementRepository->method('findByAchievementOnDate')->willReturn([$correctRow]);
+
+        $this->em->expects($this->never())->method('remove');
+        $this->em->expects($this->never())->method('persist');
+
+        [$added, $removed] = $this->service->reconcileGroupAchievements($forDate);
+
+        $this->assertSame(0, $added);
+        $this->assertSame(0, $removed);
+    }
+
     public function testSkipsAwardAlreadyGrantedOnDate(): void
     {
         $forDate = new \DateTimeImmutable('2026-08-25');

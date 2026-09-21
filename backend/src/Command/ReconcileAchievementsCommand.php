@@ -7,6 +7,7 @@ use App\Entity\UserAchievement;
 use App\Repository\UserAchievementRepository;
 use App\Repository\UserRepository;
 use App\Service\AchievementService;
+use App\Service\GroupAchievementService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -29,6 +30,7 @@ class ReconcileAchievementsCommand extends Command
         private UserRepository $userRepository,
         private UserAchievementRepository $achievementRepository,
         private AchievementService $achievementService,
+        private GroupAchievementService $groupAchievementService,
         private EntityManagerInterface $em,
     ) {
         parent::__construct();
@@ -37,6 +39,7 @@ class ReconcileAchievementsCommand extends Command
     protected function configure(): void
     {
         $this->addArgument('achievementId', InputArgument::OPTIONAL, 'Reconcile only this achievement (default: all)');
+        $this->addOption('awards-days', null, InputOption::VALUE_REQUIRED, 'Re-evaluate group award history for the last N days against current entries (full run only, 0 = skip)', '60');
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Only report what would change');
     }
 
@@ -52,6 +55,12 @@ class ReconcileAchievementsCommand extends Command
 
         $added = 0;
         $removed = 0;
+
+        // group award history first - derived milestones (regular_drinker, ...)
+        // are then recomputed from the corrected rows in the per-user pass
+        if ($achievementId === null) {
+            [$added, $removed] = $this->reconcileGroupAwards((int) $input->getOption('awards-days'));
+        }
 
         foreach ($this->userRepository->findAll() as $user) {
             [$userAdded, $userRemoved] = $this->reconcileUser($user, $achievementId);
@@ -84,7 +93,7 @@ class ReconcileAchievementsCommand extends Command
 
         if (in_array($achievementId, AchievementService::CRON_SOURCED, true)) {
             $this->io->error(sprintf(
-                '"%s" is granted by the group awards cron - its rows are the source of truth and cannot be reconciled from entries.',
+                '"%s" cannot be reconciled per-user - run the command without an argument, the full run re-evaluates group award history.',
                 $achievementId,
             ));
 
@@ -92,6 +101,29 @@ class ReconcileAchievementsCommand extends Command
         }
 
         return true;
+    }
+
+    /**
+     * @return array{int, int} rows added, rows removed
+     */
+    private function reconcileGroupAwards(int $days): array
+    {
+        $added = 0;
+        $removed = 0;
+
+        for ($i = 1; $i <= $days; $i++) {
+            $forDate = new \DateTimeImmutable(sprintf('-%d days', $i));
+            [$dateAdded, $dateRemoved] = $this->groupAchievementService->reconcileGroupAchievements($forDate, $this->dryRun);
+
+            if ($dateAdded > 0 || $dateRemoved > 0) {
+                $this->io->writeln(sprintf('awards %s: +%d / -%d', $forDate->format('Y-m-d'), $dateAdded, $dateRemoved));
+            }
+
+            $added += $dateAdded;
+            $removed += $dateRemoved;
+        }
+
+        return [$added, $removed];
     }
 
     /**
