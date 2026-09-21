@@ -35,4 +35,40 @@ class AnnounceCommandTest extends ApiTestCase
             $this->assertSame('/profile', $notification->getData()['url']);
         }
     }
+
+    public function testTargetsSingleUserByEmail(): void
+    {
+        $target = $this->createUser();
+        $bystander = $this->createUser();
+
+        $application = new Application(self::$kernel);
+        $tester = new CommandTester($application->find('app:announce'));
+        $tester->execute([
+            'title' => 'Jen pro tebe',
+            'message' => 'Cílená zpráva',
+            '--user' => [$target->getEmail()],
+        ]);
+
+        $tester->assertCommandIsSuccessful();
+
+        /** @var NotificationRepository $repository */
+        $repository = static::getContainer()->get(NotificationRepository::class);
+        $this->assertSame(1, $repository->countUnread($target));
+        $this->assertSame(0, $repository->countUnread($bystander));
+    }
+
+    public function testFailsOnUnknownEmail(): void
+    {
+        $this->createUser();
+
+        $application = new Application(self::$kernel);
+        $tester = new CommandTester($application->find('app:announce'));
+        $status = $tester->execute([
+            'title' => 'X',
+            'message' => 'Y',
+            '--user' => ['neexistuje@nikde.cz'],
+        ]);
+
+        $this->assertSame(1, $status);
+    }
 }
