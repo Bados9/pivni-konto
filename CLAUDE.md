@@ -22,7 +22,7 @@
 ### Deploying to production
 1. Open a Pull Request from `dev` to `master`
 2. Wait for CI tests to pass
-3. **Rebase merge** to `master` (triggers automatic deployment). Never squash a release: rebase keeps `master` and `dev` on identical commits, so the branches never diverge and no manual re-aligning is ever needed
+3. **Merge commit** to `master` (triggers automatic deployment). NEVER squash or rebase a release: both rewrite commit SHAs, so `master` and `dev` would diverge and every future release PR would drag old commits along. A merge commit makes `master` contain `dev`'s history exactly, so release PRs always list only new work
 4. Run any release-specific manual steps listed in the release PR description on the VPS
 
 **Never push directly to master or dev branch.** Everything goes through Pull Requests.
