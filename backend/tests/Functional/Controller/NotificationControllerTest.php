@@ -87,6 +87,35 @@ class NotificationControllerTest extends ApiTestCase
         $this->assertSame(2, $this->getResponseData()['count']);
     }
 
+    public function testMarkSingleNotificationRead(): void
+    {
+        $user = $this->createUser();
+        $notification = $this->createNotification($user, 'Announcement');
+        $other = $this->createNotification($user, 'Still unread');
+        $this->entityManager->flush();
+
+        $this->loginAs($user);
+        $this->apiRequest('POST', '/api/notifications/' . $notification->getId()->toRfc4122() . '/read');
+
+        $this->assertResponseStatusCodeSame(200);
+
+        $this->apiRequest('GET', '/api/notifications/unread-count');
+        $this->assertSame(1, $this->getResponseData()['count']);
+    }
+
+    public function testCannotMarkForeignNotificationRead(): void
+    {
+        $owner = $this->createUser();
+        $notification = $this->createNotification($owner, 'Not yours');
+        $this->entityManager->flush();
+
+        $attacker = $this->createUser();
+        $this->loginAs($attacker);
+        $this->apiRequest('POST', '/api/notifications/' . $notification->getId()->toRfc4122() . '/read');
+
+        $this->assertResponseStatusCodeSame(404);
+    }
+
     public function testReadAllMarksEverythingRead(): void
     {
         $user = $this->createUser();

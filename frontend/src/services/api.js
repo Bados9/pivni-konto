@@ -213,6 +213,10 @@ class ApiService {
     return this.post('/notifications/read-all', {})
   }
 
+  markNotificationRead(id) {
+    return this.post(`/notifications/${id}/read`, {})
+  }
+
   // Achievements
   getMyAchievements() {
     return this.get('/achievements/me')
