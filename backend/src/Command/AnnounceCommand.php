@@ -34,6 +34,7 @@ class AnnounceCommand extends Command
         $this->addArgument('message', InputArgument::REQUIRED, 'Announcement text');
         $this->addOption('url', null, InputOption::VALUE_REQUIRED, 'In-app URL the notification points to', '/');
         $this->addOption('push', null, InputOption::VALUE_NONE, 'Also send a web push to subscribed users');
+        $this->addOption('user', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Only send to these user emails (default: everyone)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -43,7 +44,10 @@ class AnnounceCommand extends Command
         $message = $input->getArgument('message');
         $url = $input->getOption('url');
 
-        $users = $this->userRepository->findAll();
+        $users = $this->resolveRecipients($input->getOption('user'), $io);
+        if ($users === null) {
+            return Command::FAILURE;
+        }
 
         foreach ($users as $user) {
             $notification = new Notification();
@@ -64,6 +68,31 @@ class AnnounceCommand extends Command
         $io->success(sprintf('Announcement created for %d user(s).', count($users)));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param string[] $emails
+     *
+     * @return \App\Entity\User[]|null null when an email does not exist
+     */
+    private function resolveRecipients(array $emails, SymfonyStyle $io): ?array
+    {
+        if ($emails === []) {
+            return $this->userRepository->findAll();
+        }
+
+        $users = [];
+        foreach ($emails as $email) {
+            $user = $this->userRepository->findOneBy(['email' => $email]);
+            if ($user === null) {
+                $io->error(sprintf('User "%s" not found.', $email));
+
+                return null;
+            }
+            $users[] = $user;
+        }
+
+        return $users;
     }
 
     private function sendPush(array $users, string $title, string $message, string $url, SymfonyStyle $io): void
