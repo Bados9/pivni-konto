@@ -46,34 +46,108 @@ class GroupAchievementService
         return $totalSaved;
     }
 
+    /**
+     * Re-evaluate a past date's awards against CURRENT entry data.
+     * Backdated or deleted entries can change who actually won: wrong holders
+     * lose the award, the rightful winner gains it. Corrections are silent.
+     *
+     * @return array{int, int} rows added, rows removed
+     */
+    public function reconcileGroupAchievements(\DateTimeImmutable $forDate, bool $dryRun = false): array
+    {
+        $winnersByType = array_fill_keys($this->evaluatedTypes($forDate), []);
+
+        foreach ($this->groupRepository->findAll() as $group) {
+            foreach ($this->computeAwards($group, $forDate) as $type => $awardData) {
+                $winnersByType[$type][$awardData['userId']] = true;
+            }
+        }
+
+        $added = 0;
+        $removed = 0;
+
+        foreach ($winnersByType as $type => $winnerIds) {
+            [$typeAdded, $typeRemoved] = $this->reconcileType($type, $winnerIds, $forDate, $dryRun);
+            $added += $typeAdded;
+            $removed += $typeRemoved;
+        }
+
+        if (!$dryRun) {
+            $this->em->flush();
+        }
+
+        return [$added, $removed];
+    }
+
+    /**
+     * @param array<string, true> $winnerIds rfc4122 user ids of the rightful winners
+     *
+     * @return array{int, int} rows added, rows removed
+     */
+    private function reconcileType(string $type, array $winnerIds, \DateTimeImmutable $forDate, bool $dryRun): array
+    {
+        $added = 0;
+        $removed = 0;
+        $holderIds = [];
+
+        foreach ($this->achievementRepository->findByAchievementOnDate($type, $forDate) as $row) {
+            $userId = $row->getUser()->getId()->toRfc4122();
+
+            // wrong winner, or a duplicate row of the same user
+            if (!isset($winnerIds[$userId]) || isset($holderIds[$userId])) {
+                $removed++;
+                if (!$dryRun) {
+                    $this->em->remove($row);
+                }
+                continue;
+            }
+
+            $holderIds[$userId] = true;
+        }
+
+        foreach (array_keys($winnerIds) as $userId) {
+            if (isset($holderIds[$userId])) {
+                continue;
+            }
+
+            $added++;
+            if ($dryRun) {
+                continue;
+            }
+
+            $achievement = new UserAchievement();
+            $achievement->setUser($this->em->getReference(User::class, Uuid::fromString($userId)));
+            $achievement->setAchievementId($type);
+            $achievement->setUnlockedAt($forDate->setTime(12, 0));
+            $this->em->persist($achievement);
+        }
+
+        return [$added, $removed];
+    }
+
+    /**
+     * Which award types close on the given date.
+     *
+     * @return string[]
+     */
+    private function evaluatedTypes(\DateTimeImmutable $forDate): array
+    {
+        $types = ['drinker_of_day'];
+
+        if ((int) $forDate->format('N') === 7) {
+            $types[] = 'drinker_of_week';
+        }
+
+        if ($forDate->format('j') === $forDate->format('t')) {
+            $types[] = 'drinker_of_month';
+        }
+
+        return $types;
+    }
+
     private function evaluateGroup(Group $group, \DateTimeImmutable $forDate, bool $notify): int
     {
-        $dayStart = $this->drinkingDayService->getDrinkingDayStart($forDate->setTime(12, 0));
-        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd($forDate->setTime(12, 0));
-
-        $weekStart = null;
-        $weekEnd = null;
-        $monthStart = null;
-        $monthEnd = null;
-
-        // Weekly: evaluate when forDate is Sunday (completed drinking week Mon-Sun)
-        if ((int) $forDate->format('N') === 7) {
-            $monday = $forDate->modify('last monday');
-            $weekStart = new \DateTimeImmutable($monday->format('Y-m-d') . ' 05:00');
-            $weekEnd = $weekStart->modify('+7 days');
-        }
-
-        // Monthly: evaluate on last day of month
-        if ($forDate->format('j') === $forDate->format('t')) {
-            $monthStart = new \DateTimeImmutable($forDate->format('Y-m-01') . ' 05:00');
-            $nextMonth = $forDate->modify('first day of next month');
-            $monthEnd = new \DateTimeImmutable($nextMonth->format('Y-m-d') . ' 05:00');
-        }
-
-        $awards = $this->entryRepository->getGroupAwards(
-            $group, $dayStart, $dayEnd, $weekStart, $weekEnd, $monthStart, $monthEnd
-        );
-
+        $awards = $this->computeAwards($group, $forDate);
         $saved = 0;
 
         foreach ($awards as $type => $awardData) {
@@ -97,5 +171,34 @@ class GroupAchievementService
         }
 
         return $saved;
+    }
+
+    private function computeAwards(Group $group, \DateTimeImmutable $forDate): array
+    {
+        $dayStart = $this->drinkingDayService->getDrinkingDayStart($forDate->setTime(12, 0));
+        $dayEnd = $this->drinkingDayService->getDrinkingDayEnd($forDate->setTime(12, 0));
+
+        $weekStart = null;
+        $weekEnd = null;
+        $monthStart = null;
+        $monthEnd = null;
+
+        // Weekly: evaluate when forDate is Sunday (completed drinking week Mon-Sun)
+        if ((int) $forDate->format('N') === 7) {
+            $monday = $forDate->modify('last monday');
+            $weekStart = new \DateTimeImmutable($monday->format('Y-m-d') . ' 05:00');
+            $weekEnd = $weekStart->modify('+7 days');
+        }
+
+        // Monthly: evaluate on last day of month
+        if ($forDate->format('j') === $forDate->format('t')) {
+            $monthStart = new \DateTimeImmutable($forDate->format('Y-m-01') . ' 05:00');
+            $nextMonth = $forDate->modify('first day of next month');
+            $monthEnd = new \DateTimeImmutable($nextMonth->format('Y-m-d') . ' 05:00');
+        }
+
+        return $this->entryRepository->getGroupAwards(
+            $group, $dayStart, $dayEnd, $weekStart, $weekEnd, $monthStart, $monthEnd
+        );
     }
 }

@@ -283,11 +283,37 @@ class AchievementService
     }
 
     /**
-     * Whether the user currently meets the condition of a non-repeatable achievement.
+     * Group awards granted by the cron - their UserAchievement rows are the
+     * source of truth and must never be recomputed from entry data.
      */
-    public function isEarnedByUser(User $user, string $id): bool
+    public const CRON_SOURCED = ['drinker_of_day', 'drinker_of_week', 'drinker_of_month'];
+
+    /**
+     * How many unlock rows each achievement SHOULD have for the user right now:
+     * 1/0 for non-repeatable, the earned count for repeatable ones.
+     * Cron-sourced group awards are excluded.
+     *
+     * @return array<string, int>
+     */
+    public function getDesiredCounts(User $user): array
     {
-        return $this->isAchievementUnlocked($id, $this->calculateUserStats($user));
+        $stats = $this->calculateUserStats($user);
+        $desired = [];
+
+        foreach ($this->achievementDefinitions as $id => $definition) {
+            if (in_array($id, self::CRON_SOURCED, true)) {
+                continue;
+            }
+
+            if ($definition['repeatable'] ?? false) {
+                $desired[$id] = $this->getRepeatableCount($id, $stats);
+                continue;
+            }
+
+            $desired[$id] = $this->isAchievementUnlocked($id, $stats) ? 1 : 0;
+        }
+
+        return $desired;
     }
 
     /**

@@ -7,7 +7,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['beer.svg', 'apple-touch-icon.png'],
       workbox: {
         importScripts: ['sw-push.js'],
       },
