@@ -2,10 +2,8 @@
 
 namespace App\Command;
 
-use App\Entity\Notification;
 use App\Repository\UserRepository;
-use App\Service\WebPushService;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\AnnouncementSender;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -22,8 +20,7 @@ class AnnounceCommand extends Command
 {
     public function __construct(
         private UserRepository $userRepository,
-        private EntityManagerInterface $em,
-        private WebPushService $webPushService,
+        private AnnouncementSender $announcementSender,
     ) {
         parent::__construct();
     }
@@ -40,32 +37,21 @@ class AnnounceCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $title = $input->getArgument('title');
-        $message = $input->getArgument('message');
-        $url = $input->getOption('url');
 
         $users = $this->resolveRecipients($input->getOption('user'), $io);
         if ($users === null) {
             return Command::FAILURE;
         }
 
-        foreach ($users as $user) {
-            $notification = new Notification();
-            $notification->setUser($user);
-            $notification->setType('announcement');
-            $notification->setTitle($title);
-            $notification->setMessage($message);
-            $notification->setData(['url' => $url]);
-            $this->em->persist($notification);
-        }
+        $count = $this->announcementSender->send(
+            $users,
+            $input->getArgument('title'),
+            $input->getArgument('message'),
+            $input->getOption('url'),
+            (bool) $input->getOption('push'),
+        );
 
-        $this->em->flush();
-
-        if ($input->getOption('push')) {
-            $this->sendPush($users, $title, $message, $url, $io);
-        }
-
-        $io->success(sprintf('Announcement created for %d user(s).', count($users)));
+        $io->success(sprintf('Announcement created for %d user(s).', $count));
 
         return Command::SUCCESS;
     }
@@ -93,19 +79,5 @@ class AnnounceCommand extends Command
         }
 
         return $users;
-    }
-
-    private function sendPush(array $users, string $title, string $message, string $url, SymfonyStyle $io): void
-    {
-        try {
-            $this->webPushService->sendToUsers($users, [
-                'title' => $title,
-                'body' => $message,
-                'url' => $url,
-                'tag' => 'announcement-' . time(),
-            ]);
-        } catch (\Throwable $e) {
-            $io->warning('Web push failed: ' . $e->getMessage());
-        }
     }
 }
