@@ -151,12 +151,11 @@ jobs:
               exit 1
             fi
 
-            # Padel proxy – warning only (padel může být down nezávisle,
-            # neblokuj tím pivnikonto deploy)
-            PADEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 http://localhost/padel/ || echo "000")
-            case "$PADEL_CODE" in
-              200|301|302|307|308) echo "✅ /padel/ proxy OK (HTTP $PADEL_CODE)" ;;
-              *) echo "⚠️  /padel/ proxy vrátilo HTTP $PADEL_CODE (nekritické, pivnikonto jede)" ;;
+            # Bytapp vhost (extra conf) – warning only, deploy pivnikonta neblokuje
+            BYTAPP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 --resolve bytapp.duckdns.org:443:127.0.0.1 https://bytapp.duckdns.org/ || echo "000")
+            case "$BYTAPP_CODE" in
+              200|301|302|304|307|308) echo "✅ bytapp vhost OK (HTTP $BYTAPP_CODE)" ;;
+              *) echo "⚠️  bytapp vhost vrátilo HTTP $BYTAPP_CODE (nekritické, pivnikonto jede)" ;;
             esac
 
             echo "Deployment completed successfully!"

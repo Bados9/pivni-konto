@@ -13,11 +13,12 @@ services:
       - frontend_build:/var/www/html/frontend:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-      # Další virtuální hosty na tomto VPS (časomíra Sokol). Adresář plní deploy
-      # té druhé aplikace; když neexistuje, Docker vytvoří prázdný a nginx jede dál.
+      # Další virtuální hosty na tomto VPS (časomíra Sokol, bytapp). Adresář plní
+      # deploy těch aplikací; když neexistuje, Docker vytvoří prázdný a nginx jede dál.
       - /var/www/casomira-nginx:/etc/nginx/extra:ro
-    # Dostupnost padel-app kontejneru přes host loopback (port 3101 bind na VPS).
-    # nginx resolvuje host.docker.internal při startu z /etc/hosts, ne z Docker DNS.
+    # Extra vhosty můžou proxovat na porty bindnuté na hostu (host.docker.internal).
+    # nginx ho resolvuje při startu z /etc/hosts, ne z Docker DNS — NEODSTRAŇOVAT,
+    # jinak nginx při startu spadne na NXDOMAIN (viz PR#52 post-mortem).
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
