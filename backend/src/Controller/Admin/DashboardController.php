@@ -106,5 +106,9 @@ class DashboardController extends AbstractDashboardController
 
         yield MenuItem::section('Achievementy');
         yield MenuItem::linkTo(UserAchievementCrudController::class, 'Achievementy', 'fa fa-trophy');
+
+        yield MenuItem::section('Oznámení');
+        yield MenuItem::linkToRoute('Poslat oznámení', 'fa fa-bullhorn', 'admin_announce');
+        yield MenuItem::linkTo(NotificationCrudController::class, 'Historie notifikací', 'fa fa-bell');
     }
 }
