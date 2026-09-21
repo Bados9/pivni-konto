@@ -147,6 +147,24 @@ class UserAchievementRepository extends ServiceEntityRepository
         return $maxStreak;
     }
 
+    /**
+     * All rows of one achievement unlocked on the given calendar day (any user).
+     *
+     * @return UserAchievement[]
+     */
+    public function findByAchievementOnDate(string $achievementId, \DateTimeImmutable $date): array
+    {
+        return $this->createQueryBuilder('ua')
+            ->where('ua.achievementId = :achievementId')
+            ->andWhere('ua.unlockedAt >= :dayStart')
+            ->andWhere('ua.unlockedAt <= :dayEnd')
+            ->setParameter('achievementId', $achievementId)
+            ->setParameter('dayStart', $date->setTime(0, 0, 0))
+            ->setParameter('dayEnd', $date->setTime(23, 59, 59))
+            ->getQuery()
+            ->getResult();
+    }
+
     public function hasAchievementOnDate(User $user, string $achievementId, \DateTimeImmutable $date): bool
     {
         $dayStart = $date->setTime(0, 0, 0);
