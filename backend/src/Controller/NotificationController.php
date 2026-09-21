@@ -2,19 +2,25 @@
 
 namespace App\Controller;
 
+use App\Controller\Trait\UuidValidationTrait;
 use App\Entity\Notification;
 use App\Entity\User;
 use App\Repository\NotificationRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/notifications')]
 class NotificationController extends AbstractController
 {
+    use UuidValidationTrait;
+
     public function __construct(
         private NotificationRepository $notificationRepository,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -43,6 +49,30 @@ class NotificationController extends AbstractController
         $user = $this->getUser();
 
         return $this->json(['count' => $this->notificationRepository->countUnread($user)]);
+    }
+
+    #[Route('/{id}/read', name: 'notifications_mark_read', methods: ['POST'])]
+    public function markRead(string $id): JsonResponse
+    {
+        $uuid = $this->parseUuid($id);
+        if ($uuid === null) {
+            return $this->invalidUuidResponse();
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $notification = $this->notificationRepository->find($uuid);
+        if ($notification === null || $notification->getUser()->getId()->toRfc4122() !== $user->getId()->toRfc4122()) {
+            return $this->json(['error' => 'Notifikace nenalezena'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($notification->getReadAt() === null) {
+            $notification->setReadAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+        }
+
+        return $this->json(['success' => true]);
     }
 
     #[Route('/read-all', name: 'notifications_read_all', methods: ['POST'])]

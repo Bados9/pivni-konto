@@ -270,5 +270,14 @@ describe('ApiService', () => {
         expect.objectContaining({ method: 'POST' })
       )
     })
+
+    it('markNotificationRead() calls correct endpoint', async () => {
+      await api.markNotificationRead('notif-id')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/notifications/notif-id/read',
+        expect.objectContaining({ method: 'POST' })
+      )
+    })
   })
 })
