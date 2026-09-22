@@ -94,7 +94,7 @@ onUnmounted(() => {
               class="mt-1 w-2 h-2 rounded-full bg-beer-500 shrink-0"
             ></span>
           </div>
-          <p class="text-xs text-gray-400 mt-0.5">{{ notification.message }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 whitespace-pre-line">{{ notification.message }}</p>
           <p class="text-xs text-gray-500 mt-1">{{ formatDate(notification.createdAt) }}</p>
         </div>
       </div>
