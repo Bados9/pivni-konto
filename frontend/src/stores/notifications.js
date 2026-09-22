@@ -6,6 +6,16 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const items = ref([])
   const unreadCount = ref(0)
   const loading = ref(false)
+  // notification manually opened from the bell, shown in the announcement modal
+  const viewed = ref(null)
+
+  function openNotification(notification) {
+    viewed.value = notification
+  }
+
+  function closeViewed() {
+    viewed.value = null
+  }
 
   async function fetchUnreadCount() {
     try {
@@ -45,6 +55,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
     items,
     unreadCount,
     loading,
+    viewed,
+    openNotification,
+    closeViewed,
     fetchUnreadCount,
     fetchNotifications,
     markAllRead
