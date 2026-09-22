@@ -7,7 +7,14 @@ const notifications = useNotificationsStore()
 const queue = ref([])
 const dismissing = ref(false)
 
-const current = computed(() => queue.value[0] || null)
+// a notification opened from the bell takes priority over the unread-announcement queue
+const current = computed(() => notifications.viewed || queue.value[0] || null)
+
+const typeIcons = {
+  announcement: '📣',
+  group_award: '🍻',
+}
+const currentIcon = computed(() => typeIcons[current.value?.type] || '🔔')
 
 onMounted(async () => {
   try {
@@ -26,6 +33,12 @@ async function dismiss() {
   if (!current.value || dismissing.value) {
     return
   }
+
+  if (notifications.viewed) {
+    notifications.closeViewed()
+    return
+  }
+
   dismissing.value = true
   const announcement = current.value
   try {
@@ -46,10 +59,10 @@ async function dismiss() {
       v-if="current"
       class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60"
     >
-      <div class="w-full max-w-sm bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-6 text-center">
-        <p class="text-4xl mb-3">📣</p>
-        <h2 class="text-lg font-bold text-white mb-2">{{ current.title }}</h2>
-        <p class="text-sm text-gray-300 whitespace-pre-line mb-6">{{ current.message }}</p>
+      <div class="w-full max-w-sm bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-6">
+        <p class="text-4xl mb-3 text-center">{{ currentIcon }}</p>
+        <h2 class="text-lg font-bold text-white mb-3 text-center">{{ current.title }}</h2>
+        <p class="text-sm text-gray-300 whitespace-pre-line leading-relaxed text-left mb-6 max-h-[50vh] overflow-y-auto">{{ current.message }}</p>
         <button
           class="btn btn-primary w-full"
           :disabled="dismissing"

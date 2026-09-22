@@ -18,6 +18,11 @@ function close() {
   open.value = false
 }
 
+function openDetail(notification) {
+  notifications.openNotification(notification)
+  close()
+}
+
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('cs-CZ', {
     day: 'numeric',
@@ -84,8 +89,9 @@ onUnmounted(() => {
         <div
           v-for="notification in notifications.items"
           :key="notification.id"
-          class="px-4 py-3 border-b border-gray-700 last:border-0"
+          class="px-4 py-3 border-b border-gray-700 last:border-0 cursor-pointer hover:bg-gray-700/60 transition-colors"
           :class="{ 'bg-gray-700/40': !notification.read }"
+          @click="openDetail(notification)"
         >
           <div class="flex items-start justify-between gap-2">
             <p class="text-sm font-medium text-white">{{ notification.title }}</p>
@@ -94,7 +100,7 @@ onUnmounted(() => {
               class="mt-1 w-2 h-2 rounded-full bg-beer-500 shrink-0"
             ></span>
           </div>
-          <p class="text-xs text-gray-400 mt-0.5">{{ notification.message }}</p>
+          <p class="text-xs text-gray-400 mt-0.5 whitespace-pre-line line-clamp-2">{{ notification.message }}</p>
           <p class="text-xs text-gray-500 mt-1">{{ formatDate(notification.createdAt) }}</p>
         </div>
       </div>
