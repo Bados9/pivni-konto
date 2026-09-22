@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Entity\BeerEntry;
+use App\Entity\Group;
 use App\Repository\BeerEntryRepository;
 use App\Repository\GroupMemberRepository;
 use Psr\Log\LoggerInterface;
@@ -20,6 +21,10 @@ class FirstBeerNotificationService
     ) {
     }
 
+    /**
+     * Entries are personal (no group attribution) - the drinker's memberships
+     * define which groups get the "first beer of the day" push.
+     */
     public function notifyIfFirstBeerInGroup(BeerEntry $entry): void
     {
         try {
@@ -33,35 +38,41 @@ class FirstBeerNotificationService
 
     private function doNotify(BeerEntry $entry): void
     {
-        $group = $entry->getGroup();
-        if ($group === null) {
-            return;
-        }
-
         $dayStart = $this->drinkingDayService->getDrinkingDayStart();
         $dayEnd = $this->drinkingDayService->getDrinkingDayEnd();
 
-        $existingCount = $this->entryRepository->countGroupEntriesInPeriod(
-            $group,
-            $dayStart,
-            $dayEnd,
-            $entry,
-        );
+        // a backdated entry is not "today's first beer"
+        if ($entry->getConsumedAt() < $dayStart || $entry->getConsumedAt() >= $dayEnd) {
+            return;
+        }
 
+        $memberships = $this->memberRepository->findBy(['user' => $entry->getUser()]);
+
+        foreach ($memberships as $membership) {
+            $this->notifyGroupIfFirst($membership->getGroup(), $entry, $dayStart, $dayEnd);
+        }
+    }
+
+    private function notifyGroupIfFirst(
+        Group $group,
+        BeerEntry $entry,
+        \DateTimeImmutable $dayStart,
+        \DateTimeImmutable $dayEnd,
+    ): void {
+        $existingCount = $this->entryRepository->countMemberEntriesInPeriod($group, $dayStart, $dayEnd, $entry);
         if ($existingCount > 0) {
             return;
         }
 
-        $members = $this->memberRepository->findBy(['group' => $group]);
         $usersToNotify = [];
-        foreach ($members as $member) {
+        foreach ($this->memberRepository->findBy(['group' => $group]) as $member) {
             if ($member->getUser()->getId()->toRfc4122() === $entry->getUser()->getId()->toRfc4122()) {
                 continue;
             }
             $usersToNotify[] = $member->getUser();
         }
 
-        if (empty($usersToNotify)) {
+        if ($usersToNotify === []) {
             return;
         }
 
