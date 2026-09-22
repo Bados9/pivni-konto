@@ -305,7 +305,11 @@ class BeerEntryRepository extends ServiceEntityRepository
         return round($total / $days, 1);
     }
 
-    public function countGroupEntriesInPeriod(
+    /**
+     * Count entries logged by ANY member of the group within the period.
+     * Entries are personal - membership defines the group scope.
+     */
+    public function countMemberEntriesInPeriod(
         Group $group,
         \DateTimeImmutable $from,
         \DateTimeImmutable $to,
@@ -313,7 +317,8 @@ class BeerEntryRepository extends ServiceEntityRepository
     ): int {
         $qb = $this->createQueryBuilder('e')
             ->select('COUNT(e.id)')
-            ->where('e.group = :group')
+            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user')
+            ->where('gm.group = :group')
             ->andWhere('e.consumedAt >= :from')
             ->andWhere('e.consumedAt < :to')
             ->setParameter('group', $group)
