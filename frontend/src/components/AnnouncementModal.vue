@@ -13,6 +13,9 @@ const current = computed(() => notifications.viewed || queue.value[0] || null)
 const typeIcons = {
   announcement: '📣',
   group_award: '🍻',
+  group_member: '👋',
+  achievement_update: '🏅',
+  recap: '📊',
 }
 const currentIcon = computed(() => typeIcons[current.value?.type] || '🔔')
 

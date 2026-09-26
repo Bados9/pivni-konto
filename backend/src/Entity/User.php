@@ -31,6 +31,19 @@ use Symfony\Component\Validator\Constraints as Assert;
 )]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    /**
+     * Push notification categories the user can opt out of.
+     * A missing key means enabled - existing users keep getting everything.
+     */
+    public const NOTIFICATION_CATEGORIES = [
+        'first_beer',
+        'group_award',
+        'overtake',
+        'streak',
+        'keg',
+        'recap',
+    ];
+
     #[ORM\Id]
     #[ORM\Column(type: 'uuid', unique: true)]
     #[Groups(['user:read', 'group:read', 'entry:read'])]
@@ -62,6 +75,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     #[Groups(['user:read', 'user:write'])]
     private ?Beer $defaultBeer = null;
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $notificationPreferences = null;
 
     #[ORM\Column]
     #[Groups(['user:read'])]
@@ -161,6 +177,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->defaultBeer = $defaultBeer;
         return $this;
+    }
+
+    public function getNotificationPreferences(): ?array
+    {
+        return $this->notificationPreferences;
+    }
+
+    public function setNotificationPreferences(?array $notificationPreferences): static
+    {
+        $this->notificationPreferences = $notificationPreferences;
+        return $this;
+    }
+
+    public function isNotificationEnabled(string $category): bool
+    {
+        return ($this->notificationPreferences[$category] ?? true) !== false;
+    }
+
+    /**
+     * Full preference map with defaults filled in, for the API.
+     *
+     * @return array<string, bool>
+     */
+    public function getResolvedNotificationPreferences(): array
+    {
+        $preferences = [];
+        foreach (self::NOTIFICATION_CATEGORIES as $category) {
+            $preferences[$category] = $this->isNotificationEnabled($category);
+        }
+        return $preferences;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

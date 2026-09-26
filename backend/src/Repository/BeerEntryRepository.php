@@ -236,6 +236,33 @@ class BeerEntryRepository extends ServiceEntityRepository
      */
     public function getCurrentStreakByUser(User $user): int
     {
+        $todayDrinkingDate = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
+
+        return $this->countStreakEndingOn($this->getDistinctDrinkingDates($user), $todayDrinkingDate);
+    }
+
+    /**
+     * Streak of consecutive drinking days ending yesterday - today's beer
+     * (or its absence) doesn't count yet. Used by the evening streak reminder.
+     */
+    public function getStreakEndingYesterday(User $user): int
+    {
+        $todayDrinkingDate = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
+        $yesterday = (new \DateTimeImmutable($todayDrinkingDate))->modify('-1 day')->format('Y-m-d');
+
+        $dates = array_values(array_filter(
+            $this->getDistinctDrinkingDates($user),
+            fn (string $date) => $date <= $yesterday,
+        ));
+
+        return $this->countStreakEndingOn($dates, $yesterday);
+    }
+
+    /**
+     * @return string[] distinct drinking dates (Y-m-d), newest first
+     */
+    private function getDistinctDrinkingDates(User $user): array
+    {
         $entries = $this->createQueryBuilder('e')
             ->select('e.consumedAt')
             ->where('e.user = :user')
@@ -244,7 +271,6 @@ class BeerEntryRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
 
-        // Extract unique drinking dates
         $dates = [];
         foreach ($entries as $entry) {
             $drinkingDate = $this->drinkingDayService->getDrinkingDate($entry['consumedAt']);
@@ -253,11 +279,18 @@ class BeerEntryRepository extends ServiceEntityRepository
         $dates = array_keys($dates);
         rsort($dates);
 
+        return $dates;
+    }
+
+    /**
+     * @param string[] $dates distinct drinking dates, newest first
+     */
+    private function countStreakEndingOn(array $dates, string $anchorDate): int
+    {
         $streak = 0;
-        $todayDrinkingDate = $this->drinkingDayService->getDrinkingDate(new \DateTimeImmutable());
 
         foreach ($dates as $dateStr) {
-            $expectedDate = (new \DateTimeImmutable($todayDrinkingDate))->modify("-{$streak} days")->format('Y-m-d');
+            $expectedDate = (new \DateTimeImmutable($anchorDate))->modify("-{$streak} days")->format('Y-m-d');
 
             if ($dateStr !== $expectedDate) {
                 break;
@@ -331,6 +364,82 @@ class BeerEntryRepository extends ServiceEntityRepository
         }
 
         return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Daily beer scores of the group members who logged something in the period.
+     * Entries are personal - membership defines the group scope.
+     *
+     * @return array<string, float> rfc4122 user id => score
+     */
+    public function getMemberScoresInPeriod(
+        Group $group,
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        ?BeerEntry $exclude = null,
+    ): array {
+        $qb = $this->createQueryBuilder('e')
+            ->select('IDENTITY(e.user) as userId, ' . $this->getScoreExpression() . ' as score')
+            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user')
+            ->where('gm.group = :group')
+            ->andWhere('e.consumedAt >= :from')
+            ->andWhere('e.consumedAt < :to')
+            ->setParameter('group', $group)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->groupBy('e.user');
+
+        if ($exclude !== null) {
+            $qb->andWhere('e.id != :excludeId')
+                ->setParameter('excludeId', $exclude->getId());
+        }
+
+        $scores = [];
+        foreach ($qb->getQuery()->getResult() as $row) {
+            $scores[(string) $row['userId']] = (float) $row['score'];
+        }
+
+        return $scores;
+    }
+
+    /**
+     * Total volume (ml) logged by the group's members in the period.
+     */
+    public function getMemberVolumeInPeriod(Group $group, \DateTimeImmutable $from, \DateTimeImmutable $to): int
+    {
+        return (int) ($this->createQueryBuilder('e')
+            ->select('SUM(e.volumeMl * e.quantity)')
+            ->innerJoin('App\Entity\GroupMember', 'gm', 'WITH', 'gm.user = e.user')
+            ->where('gm.group = :group')
+            ->andWhere('e.consumedAt >= :from')
+            ->andWhere('e.consumedAt < :to')
+            ->setParameter('group', $group)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getSingleScalarResult() ?? 0);
+    }
+
+    /**
+     * @return array{score: float, volume: int}
+     */
+    public function getUserPeriodStats(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $row = $this->createQueryBuilder('e')
+            ->select($this->getScoreExpression() . ' as score, SUM(e.volumeMl * e.quantity) as volume')
+            ->where('e.user = :user')
+            ->andWhere('e.consumedAt >= :from')
+            ->andWhere('e.consumedAt < :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getSingleResult();
+
+        return [
+            'score' => (float) ($row['score'] ?? 0),
+            'volume' => (int) ($row['volume'] ?? 0),
+        ];
     }
 
     /**

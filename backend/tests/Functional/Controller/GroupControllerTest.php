@@ -4,6 +4,7 @@ namespace App\Tests\Functional\Controller;
 
 use App\Entity\Group;
 use App\Entity\GroupMember;
+use App\Repository\NotificationRepository;
 use App\Tests\Functional\Api\ApiTestCase;
 
 class GroupControllerTest extends ApiTestCase
@@ -128,6 +129,39 @@ class GroupControllerTest extends ApiTestCase
         $data = $this->getResponseData();
         $this->assertStringContainsString('připojili', $data['message']);
         $this->assertEquals('Joinable Group', $data['group']['name']);
+    }
+
+    public function testJoinNotifiesExistingMembersOnly(): void
+    {
+        $owner = $this->createUser(name: 'Zakladatel');
+        $joiner = $this->createUser(name: 'Nováček');
+
+        $group = new Group();
+        $group->setName('Joinable Group');
+        $group->setCreatedBy($owner);
+        $this->entityManager->persist($group);
+
+        $ownerMember = new GroupMember();
+        $ownerMember->setUser($owner);
+        $ownerMember->setGroup($group);
+        $ownerMember->setRole('admin');
+        $this->entityManager->persist($ownerMember);
+        $this->entityManager->flush();
+
+        $this->loginAs($joiner);
+        $this->apiRequest('POST', '/api/groups/join', ['code' => $group->getInviteCode()]);
+        $this->assertResponseStatusCodeSame(200);
+
+        /** @var NotificationRepository $notifications */
+        $notifications = static::getContainer()->get(NotificationRepository::class);
+
+        $ownerNotifications = $notifications->findLatestByUser($owner);
+        $this->assertCount(1, $ownerNotifications);
+        $this->assertSame('group_member', $ownerNotifications[0]->getType());
+        $this->assertStringContainsString('Nováček', $ownerNotifications[0]->getMessage());
+        $this->assertStringContainsString('Joinable Group', $ownerNotifications[0]->getMessage());
+
+        $this->assertCount(0, $notifications->findLatestByUser($joiner));
     }
 
     public function testJoinGroupRequiresCode(): void

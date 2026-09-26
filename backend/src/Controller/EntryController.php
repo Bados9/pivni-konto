@@ -11,6 +11,8 @@ use App\Repository\GroupMemberRepository;
 use App\Repository\GroupRepository;
 use App\Service\AchievementService;
 use App\Service\FirstBeerNotificationService;
+use App\Service\KegNotificationService;
+use App\Service\OvertakeNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +33,8 @@ class EntryController extends AbstractController
         private BeerRepository $beerRepository,
         private AchievementService $achievementService,
         private FirstBeerNotificationService $firstBeerNotificationService,
+        private OvertakeNotificationService $overtakeNotificationService,
+        private KegNotificationService $kegNotificationService,
     ) {
     }
 
@@ -101,6 +105,8 @@ class EntryController extends AbstractController
         $this->entityManager->flush();
 
         $this->firstBeerNotificationService->notifyIfFirstBeerInGroup($entry);
+        $this->overtakeNotificationService->notifyIfOvertaken($entry);
+        $this->kegNotificationService->notifyIfKegReached($entry);
 
         // Check for newly unlocked achievements
         $newAchievements = $this->achievementService->checkAndUnlockAchievements($user);
