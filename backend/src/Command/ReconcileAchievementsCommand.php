@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Entity\Notification;
 use App\Entity\User;
 use App\Entity\UserAchievement;
 use App\Repository\UserAchievementRepository;
@@ -172,6 +173,8 @@ class ReconcileAchievementsCommand extends Command
             $achievement->setAchievementId($achievementId);
             $this->em->persist($achievement);
         }
+
+        $this->notifyChange($user, $achievementId, $count, true);
     }
 
     private function removeNewestRows(User $user, string $achievementId, int $count): void
@@ -192,5 +195,33 @@ class ReconcileAchievementsCommand extends Command
         foreach ($rows as $row) {
             $this->em->remove($row);
         }
+
+        $this->notifyChange($user, $achievementId, $count, false);
+    }
+
+    /**
+     * Bell notification about the correction - no push, the change already
+     * happened silently in the background.
+     */
+    private function notifyChange(User $user, string $achievementId, int $count, bool $granted): void
+    {
+        $definition = $this->achievementService->getDefinition($achievementId);
+        if ($definition === null) {
+            return;
+        }
+
+        $suffix = $count > 1 ? sprintf(' (%d×)', $count) : '';
+        $message = $granted
+            ? sprintf('Po přepočtu ti byl dodatečně přiznán achievement %s%s.', $definition['name'], $suffix)
+            : sprintf('Achievement %s%s ti byl po přepočtu odebrán – záznamy se zpětně změnily.', $definition['name'], $suffix);
+
+        $notification = new Notification();
+        $notification->setUser($user);
+        $notification->setType('achievement_update');
+        $notification->setTitle(sprintf('%s %s', $definition['icon'], $definition['name']));
+        $notification->setMessage($message);
+        $notification->setData(['achievementId' => $achievementId]);
+
+        $this->em->persist($notification);
     }
 }

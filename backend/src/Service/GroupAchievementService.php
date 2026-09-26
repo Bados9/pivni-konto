@@ -49,7 +49,8 @@ class GroupAchievementService
     /**
      * Re-evaluate a past date's awards against CURRENT entry data.
      * Backdated or deleted entries can change who actually won: wrong holders
-     * lose the award, the rightful winner gains it. Corrections are silent.
+     * lose the award, the rightful winner gains it. Corrections create a bell
+     * notification for the affected users, but never a push.
      *
      * @return array{int, int} rows added, rows removed
      */
@@ -89,15 +90,25 @@ class GroupAchievementService
         $added = 0;
         $removed = 0;
         $holderIds = [];
+        $revokedNotified = [];
 
         foreach ($this->achievementRepository->findByAchievementOnDate($type, $forDate) as $row) {
             $userId = $row->getUser()->getId()->toRfc4122();
+            $isWrongHolder = !isset($winnerIds[$userId]);
+            $isDuplicate = isset($holderIds[$userId]);
 
-            // wrong winner, or a duplicate row of the same user
-            if (!isset($winnerIds[$userId]) || isset($holderIds[$userId])) {
+            if ($isWrongHolder || $isDuplicate) {
                 $removed++;
-                if (!$dryRun) {
-                    $this->em->remove($row);
+                if ($dryRun) {
+                    continue;
+                }
+
+                $this->em->remove($row);
+
+                // duplicates of the rightful holder vanish silently
+                if ($isWrongHolder && !isset($revokedNotified[$userId])) {
+                    $revokedNotified[$userId] = true;
+                    $this->awardNotifier->notifyAwardRevoked($row->getUser(), $type, $forDate);
                 }
                 continue;
             }
@@ -115,11 +126,15 @@ class GroupAchievementService
                 continue;
             }
 
+            $user = $this->em->getReference(User::class, Uuid::fromString($userId));
+
             $achievement = new UserAchievement();
-            $achievement->setUser($this->em->getReference(User::class, Uuid::fromString($userId)));
+            $achievement->setUser($user);
             $achievement->setAchievementId($type);
             $achievement->setUnlockedAt($forDate->setTime(12, 0));
             $this->em->persist($achievement);
+
+            $this->awardNotifier->notifyAwardGrantedRetroactively($user, $type, $forDate);
         }
 
         return [$added, $removed];
