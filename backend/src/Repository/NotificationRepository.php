@@ -42,6 +42,22 @@ class NotificationRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * @return Notification[]
+     */
+    public function findUnpushedByType(string $type, \DateTimeImmutable $since): array
+    {
+        return $this->createQueryBuilder('n')
+            ->where('n.type = :type')
+            ->andWhere('n.pushedAt IS NULL')
+            ->andWhere('n.createdAt >= :since')
+            ->setParameter('type', $type)
+            ->setParameter('since', $since)
+            ->orderBy('n.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function markAllRead(User $user): void
     {
         $this->createQueryBuilder('n')

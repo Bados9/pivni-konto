@@ -38,6 +38,13 @@ class Notification
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $readAt = null;
 
+    /**
+     * When the web push for this notification went out. Only used by types
+     * whose push is deferred to a humane hour (group_award).
+     */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $pushedAt = null;
+
     public function __construct()
     {
         $this->id = Uuid::v7();
@@ -123,6 +130,17 @@ class Notification
     public function setReadAt(?\DateTimeImmutable $readAt): static
     {
         $this->readAt = $readAt;
+        return $this;
+    }
+
+    public function getPushedAt(): ?\DateTimeImmutable
+    {
+        return $this->pushedAt;
+    }
+
+    public function setPushedAt(?\DateTimeImmutable $pushedAt): static
+    {
+        $this->pushedAt = $pushedAt;
         return $this;
     }
 }
