@@ -88,6 +88,58 @@ class AuthControllerTest extends ApiTestCase
         $this->assertArrayHasKey('createdAt', $data);
     }
 
+    public function testMeReturnsDefaultNotificationPreferences(): void
+    {
+        $user = $this->createUser();
+        $this->loginAs($user);
+
+        $this->apiRequest('GET', '/api/auth/me');
+
+        $this->assertResponseStatusCodeSame(200);
+
+        $preferences = $this->getResponseData()['notificationPreferences'];
+        $this->assertTrue($preferences['first_beer']);
+        $this->assertTrue($preferences['streak']);
+        $this->assertTrue($preferences['recap']);
+    }
+
+    public function testUpdateNotificationPreferences(): void
+    {
+        $user = $this->createUser();
+        $this->loginAs($user);
+
+        $this->apiRequest('PATCH', '/api/auth/profile', [
+            'notificationPreferences' => [
+                'streak' => false,
+                'keg' => true,
+                'bogus_category' => false,
+            ],
+        ]);
+
+        $this->assertResponseStatusCodeSame(200);
+
+        $preferences = $this->getResponseData()['notificationPreferences'];
+        $this->assertFalse($preferences['streak']);
+        $this->assertTrue($preferences['keg']);
+        $this->assertTrue($preferences['first_beer']);
+        $this->assertArrayNotHasKey('bogus_category', $preferences);
+
+        $this->apiRequest('GET', '/api/auth/me');
+        $this->assertFalse($this->getResponseData()['notificationPreferences']['streak']);
+    }
+
+    public function testUpdateNotificationPreferencesRejectsNonArray(): void
+    {
+        $user = $this->createUser();
+        $this->loginAs($user);
+
+        $this->apiRequest('PATCH', '/api/auth/profile', [
+            'notificationPreferences' => 'nope',
+        ]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
     public function testLoginSuccess(): void
     {
         $email = 'login_' . uniqid() . '@example.com';

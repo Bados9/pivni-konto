@@ -103,6 +103,7 @@ class FirstBeerNotificationServiceTest extends TestCase
                 [$this->buddy],
                 $this->callback(fn (array $payload) => str_contains($payload['body'], 'Piják')
                     && $payload['title'] === 'Pivní parta'),
+                'first_beer',
             );
 
         $this->service->notifyIfFirstBeerInGroup($this->createEntry(new \DateTimeImmutable()));

@@ -81,6 +81,6 @@ class FirstBeerNotificationService
             'body' => $entry->getUser()->getName() . ' dnes otevřel/a první pivo! 🍺',
             'url' => '/groups',
             'tag' => 'first-beer-' . $group->getId()->toRfc4122(),
-        ]);
+        ], 'first_beer');
     }
 }

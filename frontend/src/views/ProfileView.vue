@@ -95,6 +95,38 @@ const pushLoading = ref(false)
 const testLoading = ref(false)
 const testSuccess = ref(false)
 
+// Per-category push preferences (default: everything on)
+const PREF_CATEGORIES = [
+  { key: 'first_beer', label: 'První pivo dne ve skupině' },
+  { key: 'group_award', label: 'Tituly Pijan dne/týdne/měsíce' },
+  { key: 'overtake', label: 'Předběhnutí v denním pořadí' },
+  { key: 'streak', label: 'Připomenutí pivní série' },
+  { key: 'keg', label: 'Sudové milníky skupiny' },
+  { key: 'recap', label: 'Týdenní a měsíční shrnutí' }
+]
+const notificationPrefs = ref({})
+const prefsSaving = ref(false)
+
+function initNotificationPrefs() {
+  const saved = auth.user?.notificationPreferences || {}
+  const prefs = {}
+  for (const { key } of PREF_CATEGORIES) {
+    prefs[key] = saved[key] !== false
+  }
+  notificationPrefs.value = prefs
+}
+
+async function togglePref(key) {
+  const previous = notificationPrefs.value[key]
+  notificationPrefs.value[key] = !previous
+  prefsSaving.value = true
+  const result = await auth.updateProfile({ notificationPreferences: { ...notificationPrefs.value } })
+  prefsSaving.value = false
+  if (!result.success) {
+    notificationPrefs.value[key] = previous
+  }
+}
+
 async function checkPushStatus() {
   pushSupported.value = pushService.isSupported()
   if (!pushSupported.value) {
@@ -146,6 +178,7 @@ onMounted(() => {
   fetchAchievements()
   fetchBeers()
   checkPushStatus()
+  initNotificationPrefs()
 })
 </script>
 
@@ -263,6 +296,28 @@ onMounted(() => {
           {{ testLoading ? 'Odesílám...' : 'Otestovat notifikaci' }}
         </button>
         <p v-if="testSuccess" class="text-green-500 text-xs text-center">Testovací notifikace odeslána!</p>
+
+        <div v-if="pushEnabled" class="border-t border-gray-700 pt-3 space-y-3">
+          <p class="text-xs text-gray-400">Které notifikace chceš dostávat?</p>
+          <div
+            v-for="category in PREF_CATEGORIES"
+            :key="category.key"
+            class="flex items-center justify-between"
+          >
+            <span class="text-sm">{{ category.label }}</span>
+            <button
+              @click="togglePref(category.key)"
+              :disabled="prefsSaving"
+              class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0"
+              :class="notificationPrefs[category.key] ? 'bg-beer-500' : 'bg-gray-600'"
+            >
+              <span
+                class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                :class="notificationPrefs[category.key] ? 'translate-x-6' : 'translate-x-1'"
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 

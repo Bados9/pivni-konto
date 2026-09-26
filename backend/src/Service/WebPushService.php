@@ -24,12 +24,20 @@ class WebPushService
     }
 
     /**
+     * With $category only users who kept that notification category enabled
+     * receive the push (null = not user-configurable, always send).
+     *
      * @param User[] $users
      * @param array{title: string, body: string, url?: string, tag?: string} $payload
      */
-    public function sendToUsers(array $users, array $payload): void
+    public function sendToUsers(array $users, array $payload, ?string $category = null): void
     {
-        $subscriptions = $this->subscriptionRepository->findByUsers($users);
+        $recipients = $this->filterByPreference($users, $category);
+        if (empty($recipients)) {
+            return;
+        }
+
+        $subscriptions = $this->subscriptionRepository->findByUsers($recipients);
         if (empty($subscriptions)) {
             return;
         }
@@ -37,9 +45,26 @@ class WebPushService
         $this->sendToSubscriptions($subscriptions, $payload);
     }
 
-    public function sendToUser(User $user, array $payload): void
+    public function sendToUser(User $user, array $payload, ?string $category = null): void
     {
-        $this->sendToUsers([$user], $payload);
+        $this->sendToUsers([$user], $payload, $category);
+    }
+
+    /**
+     * @param User[] $users
+     *
+     * @return User[]
+     */
+    private function filterByPreference(array $users, ?string $category): array
+    {
+        if ($category === null) {
+            return $users;
+        }
+
+        return array_values(array_filter(
+            $users,
+            fn (User $user) => $user->isNotificationEnabled($category),
+        ));
     }
 
     /**
