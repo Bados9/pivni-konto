@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Group;
 use App\Entity\GroupMember;
+use App\Entity\Notification;
 use App\Entity\User;
 use App\Enum\GroupRole;
 use App\Repository\GroupMemberRepository;
@@ -121,6 +122,7 @@ class GroupController extends AbstractController
         $member->setRole(GroupRole::MEMBER->value);
 
         $this->entityManager->persist($member);
+        $this->notifyExistingMembers($group, $user);
         $this->entityManager->flush();
 
         return $this->json([
@@ -130,5 +132,27 @@ class GroupController extends AbstractController
                 'name' => $group->getName(),
             ],
         ]);
+    }
+
+    /**
+     * Bell notification for members who were in the group before the newcomer
+     * joined (the new membership is not flushed yet, so it's not listed).
+     */
+    private function notifyExistingMembers(Group $group, User $newMember): void
+    {
+        foreach ($this->groupMemberRepository->findBy(['group' => $group]) as $existingMember) {
+            $notification = new Notification();
+            $notification->setUser($existingMember->getUser());
+            $notification->setType('group_member');
+            $notification->setTitle('👋 Nový člen');
+            $notification->setMessage(sprintf(
+                '%s se přidal/a do skupiny %s.',
+                $newMember->getName(),
+                $group->getName(),
+            ));
+            $notification->setData(['groupId' => $group->getId()->toRfc4122()]);
+
+            $this->entityManager->persist($notification);
+        }
     }
 }

@@ -188,4 +188,18 @@ class UserAchievementRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['user' => $user, 'achievementId' => $achievementId]);
     }
+
+    public function countUnlockedInPeriod(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): int
+    {
+        return (int) $this->createQueryBuilder('ua')
+            ->select('COUNT(ua.id)')
+            ->where('ua.user = :user')
+            ->andWhere('ua.unlockedAt >= :from')
+            ->andWhere('ua.unlockedAt < :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

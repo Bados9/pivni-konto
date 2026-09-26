@@ -102,14 +102,7 @@ class AuthController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        return $this->json([
-            'id' => $user->getId()->toRfc4122(),
-            'name' => $user->getName(),
-            'email' => $user->getEmail(),
-            'avatar' => $user->getAvatar(),
-            'defaultBeerId' => $user->getDefaultBeer()?->getId()?->toRfc4122(),
-            'createdAt' => $user->getCreatedAt()->format('c'),
-        ]);
+        return $this->json($this->serializeProfile($user));
     }
 
     #[Route('/profile', name: 'auth_update_profile', methods: ['PATCH'])]
@@ -138,6 +131,26 @@ class AuthController extends AbstractController
             }
 
             $user->setName($name);
+        }
+
+        if (array_key_exists('notificationPreferences', $data)) {
+            $preferences = $data['notificationPreferences'];
+
+            if (!is_array($preferences)) {
+                return $this->json([
+                    'error' => 'Neplatný formát nastavení notifikací',
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $filtered = [];
+            foreach (User::NOTIFICATION_CATEGORIES as $category) {
+                if (!array_key_exists($category, $preferences)) {
+                    continue;
+                }
+                $filtered[$category] = (bool) $preferences[$category];
+            }
+
+            $user->setNotificationPreferences($filtered);
         }
 
         if (array_key_exists('defaultBeerId', $data)) {
@@ -169,13 +182,19 @@ class AuthController extends AbstractController
 
         $this->entityManager->flush();
 
-        return $this->json([
+        return $this->json($this->serializeProfile($user));
+    }
+
+    private function serializeProfile(User $user): array
+    {
+        return [
             'id' => $user->getId()->toRfc4122(),
             'name' => $user->getName(),
             'email' => $user->getEmail(),
             'avatar' => $user->getAvatar(),
             'defaultBeerId' => $user->getDefaultBeer()?->getId()?->toRfc4122(),
+            'notificationPreferences' => $user->getResolvedNotificationPreferences(),
             'createdAt' => $user->getCreatedAt()->format('c'),
-        ]);
+        ];
     }
 }

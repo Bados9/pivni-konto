@@ -206,6 +206,13 @@ class GroupAchievementServiceTest extends TestCase
             });
         $this->em->expects($this->once())->method('flush');
 
+        $this->awardNotifier->expects($this->once())
+            ->method('notifyAwardRevoked')
+            ->with($wrongHolder, 'drinker_of_day', $forDate);
+        $this->awardNotifier->expects($this->once())
+            ->method('notifyAwardGrantedRetroactively')
+            ->with($rightfulWinner, 'drinker_of_day', $forDate);
+
         [$added, $removed] = $this->service->reconcileGroupAchievements($forDate);
 
         $this->assertSame(1, $added);
@@ -213,6 +220,35 @@ class GroupAchievementServiceTest extends TestCase
         $this->assertSame($rightfulWinner, $persisted->getUser());
         $this->assertSame('drinker_of_day', $persisted->getAchievementId());
         $this->assertEquals(new \DateTimeImmutable('2026-08-25 12:00'), $persisted->getUnlockedAt());
+    }
+
+    public function testReconcileRemovesDuplicateOfCorrectWinnerSilently(): void
+    {
+        $forDate = new \DateTimeImmutable('2026-08-25');
+        $winner = new User();
+
+        $correctRow = new UserAchievement();
+        $correctRow->setUser($winner);
+        $correctRow->setAchievementId('drinker_of_day');
+
+        $duplicateRow = new UserAchievement();
+        $duplicateRow->setUser($winner);
+        $duplicateRow->setAchievementId('drinker_of_day');
+
+        $award = $this->winnerAward();
+        $award['userId'] = $winner->getId()->toRfc4122();
+
+        $this->entryRepository->method('getGroupAwards')->willReturn(['drinker_of_day' => $award]);
+        $this->achievementRepository->method('findByAchievementOnDate')->willReturn([$correctRow, $duplicateRow]);
+
+        $this->em->expects($this->once())->method('remove')->with($duplicateRow);
+        $this->awardNotifier->expects($this->never())->method('notifyAwardRevoked');
+        $this->awardNotifier->expects($this->never())->method('notifyAwardGrantedRetroactively');
+
+        [$added, $removed] = $this->service->reconcileGroupAchievements($forDate);
+
+        $this->assertSame(0, $added);
+        $this->assertSame(1, $removed);
     }
 
     public function testReconcileRemovesAwardWhenNobodyQualifies(): void

@@ -107,6 +107,36 @@ class UserTest extends TestCase
         $this->assertCount(0, $user->getBeerEntries());
     }
 
+    public function testNotificationsEnabledByDefault(): void
+    {
+        $user = new User();
+
+        $this->assertTrue($user->isNotificationEnabled('streak'));
+        $this->assertTrue($user->isNotificationEnabled('unknown_category'));
+    }
+
+    public function testDisabledNotificationCategory(): void
+    {
+        $user = new User();
+        $user->setNotificationPreferences(['streak' => false, 'keg' => true]);
+
+        $this->assertFalse($user->isNotificationEnabled('streak'));
+        $this->assertTrue($user->isNotificationEnabled('keg'));
+        $this->assertTrue($user->isNotificationEnabled('overtake'));
+    }
+
+    public function testResolvedPreferencesContainAllCategories(): void
+    {
+        $user = new User();
+        $user->setNotificationPreferences(['recap' => false]);
+
+        $resolved = $user->getResolvedNotificationPreferences();
+
+        $this->assertSame(User::NOTIFICATION_CATEGORIES, array_keys($resolved));
+        $this->assertFalse($resolved['recap']);
+        $this->assertTrue($resolved['first_beer']);
+    }
+
     public function testFluentInterface(): void
     {
         $user = new User();

@@ -5,8 +5,10 @@ namespace App\Tests\Functional\Command;
 use App\Entity\BeerEntry;
 use App\Entity\Group;
 use App\Entity\GroupMember;
+use App\Entity\Notification;
 use App\Entity\User;
 use App\Entity\UserAchievement;
+use App\Repository\NotificationRepository;
 use App\Repository\UserAchievementRepository;
 use App\Tests\Functional\Api\ApiTestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -105,6 +107,30 @@ class ReconcileAchievementsCommandTest extends ApiTestCase
         $repository = static::getContainer()->get(UserAchievementRepository::class);
         $this->assertTrue($repository->hasAchievement($users[0], 'drinker_of_day'));
         $this->assertFalse($repository->hasAchievement($users[1], 'drinker_of_day'));
+
+        // both affected users learn about the correction from the bell
+        /** @var NotificationRepository $notifications */
+        $notifications = static::getContainer()->get(NotificationRepository::class);
+        $this->assertNotNull($this->findAwardCorrection($notifications, $users[0], 'přiznán'));
+        $this->assertNotNull($this->findAwardCorrection($notifications, $users[1], 'odebrán'));
+    }
+
+    private function findAwardCorrection(
+        NotificationRepository $notifications,
+        User $user,
+        string $needle,
+    ): ?Notification {
+        foreach ($notifications->findLatestByUser($user, 50) as $notification) {
+            $isMatch = $notification->getType() === 'achievement_update'
+                && ($notification->getData()['achievementId'] ?? null) === 'drinker_of_day'
+                && str_contains($notification->getMessage(), $needle);
+
+            if ($isMatch) {
+                return $notification;
+            }
+        }
+
+        return null;
     }
 
     public function testRejectsUnknownAndCronSourcedAchievements(): void
