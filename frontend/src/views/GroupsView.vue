@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useGroupsStore } from '../stores/groups'
 import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
+import { getPeriodRange, getPeriodLabel, toDateString } from '../utils/periods'
 import GroupSelector from '../components/GroupSelector.vue'
 
 const groups = useGroupsStore()
@@ -21,13 +22,17 @@ const leaderboardLoading = ref(false)
 
 // Period tabs
 const periods = [
-  { id: 'today', label: 'Dnes' },
+  { id: 'today', label: 'Den' },
   { id: 'week', label: 'Týden' },
   { id: 'month', label: 'Měsíc' },
   { id: 'year', label: 'Rok' },
   { id: 'custom', label: 'Vlastní' },
 ]
 const activePeriod = ref('today')
+
+// Posun období zpět (0 = aktuální, 1 = předchozí, ...)
+const periodOffset = ref(0)
+const periodLabel = computed(() => getPeriodLabel(activePeriod.value, periodOffset.value))
 
 // Custom date range
 const showDatePicker = ref(false)
@@ -57,9 +62,7 @@ async function fetchLeaderboard() {
 
   leaderboardLoading.value = true
   try {
-    const opts = activePeriod.value === 'custom'
-      ? { from: customFrom.value, to: customTo.value }
-      : {}
+    const opts = leaderboardRangeOptions()
     const data = await api.getLeaderboard(groups.activeGroup.id, activePeriod.value, opts)
     leaderboard.value = data.leaderboard || []
   } catch (err) {
@@ -69,8 +72,30 @@ async function fetchLeaderboard() {
   leaderboardLoading.value = false
 }
 
+// Aktuální období počítá server, minulá posíláme jako from/to
+function leaderboardRangeOptions() {
+  if (activePeriod.value === 'custom') {
+    return { from: customFrom.value, to: customTo.value }
+  }
+  if (periodOffset.value === 0) {
+    return {}
+  }
+  const { start, end } = getPeriodRange(activePeriod.value, periodOffset.value)
+  return { from: toDateString(start), to: toDateString(end) }
+}
+
+function shiftPeriod(step) {
+  const offset = periodOffset.value + step
+  if (offset < 0) {
+    return
+  }
+  periodOffset.value = offset
+  fetchLeaderboard()
+}
+
 function setPeriod(period) {
   activePeriod.value = period
+  periodOffset.value = 0
   if (period === 'custom') {
     showDatePicker.value = true
     return
@@ -182,7 +207,7 @@ onMounted(async () => {
     <!-- Leaderboard section -->
     <template v-if="groups.activeGroup">
       <!-- Period tabs -->
-      <div class="flex bg-gray-800 rounded-xl p-1 mb-6">
+      <div class="flex bg-gray-800 rounded-xl p-1" :class="activePeriod === 'custom' ? 'mb-6' : 'mb-2'">
         <button
           v-for="period in periods"
           :key="period.id"
@@ -193,6 +218,34 @@ onMounted(async () => {
             : 'text-gray-400 hover:text-white'"
         >
           {{ period.label }}
+        </button>
+      </div>
+
+      <!-- Period navigation -->
+      <div v-if="activePeriod !== 'custom'" class="flex items-center justify-between bg-gray-800 rounded-xl p-1 mb-6">
+        <button
+          @click="shiftPeriod(1)"
+          class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-200 hover:bg-gray-700 transition-colors"
+          aria-label="Předchozí období"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <div class="text-center leading-tight">
+          <p class="font-medium text-sm">{{ periodLabel.title }}</p>
+          <p v-if="periodLabel.subtitle" class="text-xs text-gray-400">{{ periodLabel.subtitle }}</p>
+        </div>
+        <button
+          @click="shiftPeriod(-1)"
+          :disabled="periodOffset === 0"
+          class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
+          :class="periodOffset === 0 ? 'text-gray-600 cursor-default' : 'text-gray-200 hover:bg-gray-700'"
+          aria-label="Další období"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
         </button>
       </div>
 
