@@ -3,6 +3,10 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Čas buildu – v Profilu je vidět, jestli PWA běží na nejnovější verzi
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     vue(),
     VitePWA({
