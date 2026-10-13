@@ -10,6 +10,14 @@ import AchievementsPanel from '../components/AchievementsPanel.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+
+const buildTime = new Date(__BUILD_TIME__).toLocaleString('cs-CZ', {
+  day: 'numeric',
+  month: 'numeric',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 const groups = useGroupsStore()
 
 const achievements = ref({ summary: null, achievements: [], grouped: {} })
@@ -359,7 +367,7 @@ onMounted(() => {
     </button>
 
     <div class="mt-8 text-center text-gray-500 text-sm">
-      <p>Pivní Konto v1.0.0</p>
+      <p>Pivní Konto · verze z {{ buildTime }}</p>
       <p class="mt-1">🍺 Na zdraví!</p>
     </div>
   </div>
