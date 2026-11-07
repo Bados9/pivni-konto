@@ -79,6 +79,26 @@ describe('ApiService', () => {
 
       await expect(api.get('/test')).rejects.toThrow('Custom error message')
     })
+
+    it('throws error with API Platform detail', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve({ title: 'An error occurred', detail: 'Pivo s tímto názvem již existuje.' })
+      })
+
+      await expect(api.post('/beers/suggest', { name: 'Test' })).rejects.toThrow('Pivo s tímto názvem již existuje.')
+    })
+
+    it('throws generic error when error response is not JSON', async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: () => Promise.reject(new SyntaxError('Unexpected token <'))
+      })
+
+      await expect(api.get('/test')).rejects.toThrow('Něco se pokazilo')
+    })
   })
 
   describe('HTTP methods', () => {
