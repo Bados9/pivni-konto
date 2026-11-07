@@ -7,6 +7,7 @@ namespace App\State;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Beer;
+use App\Enum\BeerStatus;
 use App\Repository\BeerRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -31,19 +32,13 @@ class BeerSubmissionProcessor implements ProcessorInterface
 
         $user = $this->security->getUser();
 
-        // Rate limit
-        $limiter = $this->beerSuggestionLimiter->create($user->getId()->toRfc4122());
-        if (!$limiter->consume()->isAccepted()) {
-            throw new TooManyRequestsHttpException(null, 'Příliš mnoho návrhů piv. Zkuste to později.');
-        }
-
         // Trim name
         $data->setName(trim($data->getName()));
 
         // Check duplicate (case-insensitive)
         $existing = $this->beerRepository->findByNameCaseInsensitive($data->getName());
         if ($existing !== null) {
-            throw new UnprocessableEntityHttpException('Pivo s tímto názvem již existuje.');
+            throw new UnprocessableEntityHttpException($this->duplicateMessage($existing));
         }
 
         // Check pending limit
@@ -52,9 +47,29 @@ class BeerSubmissionProcessor implements ProcessorInterface
             throw new UnprocessableEntityHttpException('Máte příliš mnoho neschválených návrhů (max 10).');
         }
 
+        // Rate limit – až po kontrolách, aby odmítnuté pokusy nevyčerpaly limit
+        $limiter = $this->beerSuggestionLimiter->create($user->getId()->toRfc4122());
+        if (!$limiter->consume()->isAccepted()) {
+            throw new TooManyRequestsHttpException(null, 'Příliš mnoho návrhů piv. Zkuste to později.');
+        }
+
         $data->setStatus('pending');
         $data->setSubmittedBy($user);
 
         return $this->persistProcessor->process($data, $operation, $uriVariables, $context);
+    }
+
+    // Čekající návrhy ostatních ani zamítnutá piva uživatel v seznamu nevidí,
+    // proto mu řekneme, proč název nejde použít
+    private function duplicateMessage(Beer $existing): string
+    {
+        if ($existing->getStatus() === BeerStatus::PENDING->value) {
+            return 'Toto pivo už někdo navrhl a čeká na schválení.';
+        }
+        if ($existing->getStatus() === BeerStatus::REJECTED->value) {
+            return 'Pivo s tímto názvem bylo zamítnuto.';
+        }
+
+        return 'Pivo s tímto názvem již existuje.';
     }
 }

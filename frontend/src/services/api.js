@@ -99,10 +99,12 @@ class ApiService {
       throw new Error('Unauthorized')
     }
 
-    const data = await response.json()
+    // Chybová odpověď nemusí být JSON (např. 502 z nginxu)
+    const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      throw new Error(data.error || data.message || 'Něco se pokazilo')
+      // API Platform posílá důvod v `detail`, vlastní controllery v `error`
+      throw new Error(data.error || data.detail || data.message || 'Něco se pokazilo')
     }
 
     return data
